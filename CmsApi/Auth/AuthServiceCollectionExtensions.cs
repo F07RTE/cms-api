@@ -1,5 +1,7 @@
+using CmsApi.Core.Users;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 
 namespace CmsApi.Auth;
 
@@ -27,6 +29,9 @@ public static class AuthServiceCollectionExtensions
             )
             .ValidateOnStart();
 
+        services.AddMemoryCache();
+        services.AddSingleton<IPasswordHasher<StoredUser>, Argon2PasswordHasher>();
+        services.AddScoped<UserAuthenticator>();
         services
             .AddAuthentication(AuthNames.BasicScheme)
             .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>(
@@ -39,6 +44,11 @@ public static class AuthServiceCollectionExtensions
                 AuthNames.CmsClientPolicy,
                 policy => policy.RequireRole(AuthNames.CmsClientRole)
             )
+            .AddPolicy(
+                AuthNames.ApiUserPolicy,
+                policy => policy.RequireRole(AuthNames.DefaultUserRole, AuthNames.AdminRole)
+            )
+            .AddPolicy(AuthNames.AdminOnlyPolicy, policy => policy.RequireRole(AuthNames.AdminRole))
             .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
         return services;
     }

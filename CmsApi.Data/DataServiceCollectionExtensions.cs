@@ -1,9 +1,11 @@
 using CmsApi.Core.ContentEntities;
 using CmsApi.Core.EventLog;
 using CmsApi.Core.Inbox;
+using CmsApi.Core.Users;
 using CmsApi.Data.ContentEntities;
 using CmsApi.Data.EventLog;
 using CmsApi.Data.Inbox;
+using CmsApi.Data.Users;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,6 +36,7 @@ public static class DataServiceCollectionExtensions
                     .UseSnakeCaseNamingConvention()
                     .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking)
         );
+        services.AddScoped<IUserStore, EfUserStore>();
         return services;
     }
 
@@ -51,7 +54,8 @@ public static class DataServiceCollectionExtensions
             )
             .ValidateRequired(options => options.Writer, nameof(ConnectionStringOptions.Writer))
             .ValidateOnStart();
-        services.AddDbContext<WriteDbContext>(
+        // The factory also registers WriteDbContext as scoped, for everything that uses it per scope.
+        services.AddDbContextFactory<WriteDbContext>(
             (provider, options) =>
                 options.UseNpgsql(ConnectionStrings(provider).Writer).UseSnakeCaseNamingConvention()
         );

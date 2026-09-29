@@ -10,12 +10,13 @@ using Microsoft.Net.Http.Headers;
 
 namespace CmsApi.Auth;
 
-/// <summary>Basic auth. Checks the CMS Client credential; Users arrive in a later ticket.</summary>
+/// <summary>Basic auth. Checks the CMS Client credential first, then the Users.</summary>
 public sealed class BasicAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
     UrlEncoder encoder,
     IOptions<CmsCredentials> cmsCredentials,
+    UserAuthenticator userAuthenticator,
     IProblemDetailsService problemDetails
 ) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
@@ -26,38 +27,65 @@ public sealed class BasicAuthenticationHandler(
     private const string ChallengeDetail = "Missing or invalid credentials.";
     private const string ChallengeAction =
         "Send valid credentials in a Basic Authorization header.";
+    private const string ForbiddenDetail = "These credentials may not use this endpoint.";
+    private const string ForbiddenAction =
+        "Call this endpoint with the credentials of a caller allowed to use it.";
 
-    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        if (!Request.Headers.ContainsKey(HeaderNames.Authorization))
+        string? header = Request.Headers.Authorization;
+        if (header is null)
         {
-            return Task.FromResult(AuthenticateResult.NoResult());
+            return AuthenticateResult.NoResult();
         }
 
-        if (
-            !BasicCredentials.TryParse(Request.Headers.Authorization, out var credentials)
-            || !IsCmsClient(credentials)
-        )
-        {
-            return Task.FromResult(AuthenticateResult.Fail(InvalidCredentials));
-        }
-
-        return Task.FromResult(AuthenticateResult.Success(CmsClientTicket(credentials)));
+        var ticket = BasicCredentials.TryParse(header, out var credentials)
+            ? await TicketForAsync(header, credentials)
+            : null;
+        return ticket is null
+            ? AuthenticateResult.Fail(InvalidCredentials)
+            : AuthenticateResult.Success(ticket);
     }
 
-    protected override async Task HandleChallengeAsync(AuthenticationProperties properties)
+    private async Task<AuthenticationTicket?> TicketForAsync(
+        string header,
+        BasicCredentials credentials
+    )
     {
-        Response.StatusCode = StatusCodes.Status401Unauthorized;
+        if (IsCmsClient(credentials))
+        {
+            return CmsClientTicket(credentials);
+        }
+
+        var user = await userAuthenticator.AuthenticateAsync(
+            header,
+            credentials,
+            Context.RequestAborted
+        );
+        return user is null ? null : UserTicket(user);
+    }
+
+    protected override Task HandleChallengeAsync(AuthenticationProperties properties)
+    {
         Response.Headers.WWWAuthenticate = Challenge;
+        return WriteProblemAsync(
+            StatusCodes.Status401Unauthorized,
+            ChallengeDetail,
+            ChallengeAction
+        );
+    }
+
+    protected override Task HandleForbiddenAsync(AuthenticationProperties properties) =>
+        WriteProblemAsync(StatusCodes.Status403Forbidden, ForbiddenDetail, ForbiddenAction);
+
+    private async Task WriteProblemAsync(int status, string detail, string action)
+    {
+        Response.StatusCode = status;
         await problemDetails.WriteAsync(
             new ProblemDetailsContext
             {
                 HttpContext = Context,
-                ProblemDetails = Problems.Create(
-                    StatusCodes.Status401Unauthorized,
-                    ChallengeDetail,
-                    ChallengeAction
-                ),
+                ProblemDetails = Problems.Create(status, detail, action),
             }
         );
     }
@@ -71,13 +99,19 @@ public sealed class BasicAuthenticationHandler(
         return usernameMatches & passwordMatches;
     }
 
-    private AuthenticationTicket CmsClientTicket(BasicCredentials credentials)
+    private AuthenticationTicket CmsClientTicket(BasicCredentials credentials) =>
+        Ticket(CmsClientId, credentials.Username, AuthNames.CmsClientRole);
+
+    private AuthenticationTicket UserTicket(AuthenticatedUser user) =>
+        Ticket(user.Id.ToString(), user.Username, user.Role.ToString());
+
+    private AuthenticationTicket Ticket(string id, string username, string role)
     {
         Claim[] claims =
         [
-            new(ClaimTypes.NameIdentifier, CmsClientId),
-            new(ClaimTypes.Name, credentials.Username),
-            new(ClaimTypes.Role, AuthNames.CmsClientRole),
+            new(ClaimTypes.NameIdentifier, id),
+            new(ClaimTypes.Name, username),
+            new(ClaimTypes.Role, role),
         ];
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme.Name));
         return new AuthenticationTicket(principal, Scheme.Name);

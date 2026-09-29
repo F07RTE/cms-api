@@ -6,12 +6,15 @@ using CmsApi.Auth;
 using CmsApi.Core.Auth;
 using CmsApi.Core.Batches;
 using CmsApi.Core.Inbox;
+using CmsApi.Core.Users;
 using CmsApi.Data;
 using CmsApi.Data.ContentEntities;
 using CmsApi.Data.EventLog;
 using CmsApi.Data.Inbox;
 using CmsApi.Data.Tombstones;
+using CmsApi.Data.Users;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
@@ -27,6 +30,7 @@ namespace CmsApi.IntegrationTests;
 public static class Orchestrator
 {
     public const string BatchRoute = "/cms/events";
+    public const string ContentEntitiesRoute = "/entities";
 
     private const string TestingEnvironment = "Testing";
 
@@ -65,6 +69,58 @@ public static class Orchestrator
     {
         var credentials = Factory.Services.GetRequiredService<IOptions<CmsCredentials>>().Value;
         return new BasicCredentials(credentials.Username, credentials.Password);
+    }
+
+    /// <summary>Stores a User with a fresh random password; returns the credentials to log in with.</summary>
+    public static async Task<BasicCredentials> CreateUserAsync(string username, UserRole role)
+    {
+        await using var scope = CreateScope();
+        var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<StoredUser>>();
+        var password = Guid.NewGuid().ToString();
+        var user = new StoredUser(Guid.NewGuid(), username, string.Empty, role);
+        await CreateUserAsync(user with { PasswordHash = hasher.HashPassword(user, password) });
+        return new BasicCredentials(username, password);
+    }
+
+    /// <summary>Stores a User with the given password hash, as-is.</summary>
+    public static async Task CreateUserAsync(StoredUser user)
+    {
+        await using var scope = CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<WriteDbContext>();
+        context.Users.Add(
+            new User
+            {
+                Id = user.Id,
+                Username = user.Username,
+                PasswordHash = user.PasswordHash,
+                Role = user.Role,
+            }
+        );
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>Removes every User, e.g. to show a login was served from the credential cache.</summary>
+    public static async Task DeleteUsersAsync()
+    {
+        await using var scope = CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<WriteDbContext>();
+        await context.Users.ExecuteDeleteAsync();
+    }
+
+    public static async Task<List<User>> ReadUsersAsync()
+    {
+        await using var scope = CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<WriteDbContext>();
+        return await context.Users.OrderBy(user => user.Username).ToListAsync();
+    }
+
+    public static async Task<HttpResponseMessage> GetContentEntityAsync(
+        string id,
+        BasicCredentials credentials
+    )
+    {
+        using var client = WithBasicAuth(CreateClient(), credentials);
+        return await client.GetAsync($"{ContentEntitiesRoute}/{id}");
     }
 
     /// <summary>A <c>publish</c> or <c>unPublish</c> CMS Event, as the CMS Client sends it.</summary>
@@ -160,6 +216,19 @@ public static class Orchestrator
             setters.SetProperty(batch => batch.Status, InboxStatus.Pending)
         );
     }
+
+    /// <summary>Stores a Visible Content Entity with placeholder CMS data.</summary>
+    public static Task<ContentEntity> SeedVisibleContentEntityAsync(string id) =>
+        SeedEntityAsync(
+            new ContentEntity
+            {
+                Id = id,
+                Version = 1,
+                Payload = "{}",
+                IsPublished = true,
+                LastEventAt = Clock.GetUtcNow(),
+            }
+        );
 
     /// <summary>Stores a Content Entity directly, as if earlier Batches had created it.</summary>
     public static async Task<ContentEntity> SeedEntityAsync(ContentEntity contentEntity)

@@ -114,15 +114,7 @@ public sealed class PostTests : IntegrationTest
         HttpStatusCode status
     )
     {
-        response.StatusCode.Should().Be(status);
-        response
-            .Content.Headers.ContentType?.MediaType.Should()
-            .Be(MediaTypeNames.Application.ProblemJson);
-
-        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
-        problem.GetProperty("status").GetInt32().Should().Be((int)status);
-        problem.GetProperty("action").GetString().Should().NotBeNullOrWhiteSpace();
-
+        await response.ShouldBeProblemAsync(status);
         (await Orchestrator.ReadInboxAsync()).Should().BeEmpty();
     }
 }
