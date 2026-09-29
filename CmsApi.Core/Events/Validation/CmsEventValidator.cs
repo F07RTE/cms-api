@@ -46,24 +46,49 @@ public static class CmsEventValidator
             return new FailedCmsEvent(null, rawEvent, InvalidIdReason);
         }
 
-        try
-        {
-            return new ValidCmsEvent(ReadEvent(element, id));
-        }
-        catch (RuleBrokenException broken)
-        {
-            return new FailedCmsEvent(id, rawEvent, broken.Message);
-        }
+        return ReadEvent(element, id, rawEvent);
     }
 
-    private static CmsEvent ReadEvent(JsonElement element, string id)
+    // Each rule in turn; the first one broken is the reason.
+    private static CmsEventValidation ReadEvent(JsonElement element, string id, string rawEvent)
     {
-        Require(!HasDuplicateKey(element), DuplicateKeyReason);
-        var type = ReadType(element);
-        var timestamp = ReadTimestamp(element);
+        if (HasDuplicateKey(element))
+        {
+            return new FailedCmsEvent(id, rawEvent, DuplicateKeyReason);
+        }
+
+        if (!TryReadType(element, out var type))
+        {
+            return new FailedCmsEvent(id, rawEvent, UnknownTypeReason);
+        }
+
+        if (!TryReadTimestamp(element, out var timestamp))
+        {
+            return new FailedCmsEvent(id, rawEvent, InvalidTimestampReason);
+        }
+
+        var header = new CmsEvent(id, type, Version: null, timestamp, Payload: null);
         return type == CmsEventType.Delete
-            ? new CmsEvent(id, type, Version: null, timestamp, Payload: null)
-            : new CmsEvent(id, type, ReadVersion(element), timestamp, ReadPayload(element));
+            ? new ValidCmsEvent(header)
+            : ReadVersioned(element, header, rawEvent);
+    }
+
+    // publish and unPublish also carry a version and a payload; the header has neither yet.
+    private static CmsEventValidation ReadVersioned(
+        JsonElement element,
+        CmsEvent header,
+        string rawEvent
+    )
+    {
+        if (!TryReadVersion(element, out var version))
+        {
+            return new FailedCmsEvent(header.Id, rawEvent, InvalidVersionReason);
+        }
+
+        element.TryGetProperty(PayloadProperty, out var payload);
+        return PayloadBrokenRule(payload) is { } brokenRule
+            ? new FailedCmsEvent(header.Id, rawEvent, brokenRule)
+            : new ValidCmsEvent(header with { Version = version, Payload = payload.GetRawText() });
     }
 
     private static string? ReadId(JsonElement element) =>
@@ -80,60 +105,56 @@ public static class CmsEventValidator
         && !char.IsWhiteSpace(id[0])
         && !char.IsWhiteSpace(id[^1]);
 
-    private static CmsEventType ReadType(JsonElement element)
+    private static bool TryReadType(JsonElement element, out CmsEventType type)
     {
-        var property = RequiredProperty(element, TypeProperty, UnknownTypeReason);
-        Require(property.ValueKind == JsonValueKind.String, UnknownTypeReason);
-        Require(
-            Types.TryGetValue(property.GetString() ?? string.Empty, out var type),
-            UnknownTypeReason
-        );
-        return type;
+        type = default;
+        return element.TryGetProperty(TypeProperty, out var property)
+            && property.ValueKind == JsonValueKind.String
+            && Types.TryGetValue(property.GetString() ?? string.Empty, out type);
     }
 
     // TryGetDateTime reports Unspecified when the text has no offset; that is the case to reject.
-    private static DateTimeOffset ReadTimestamp(JsonElement element)
+    private static bool TryReadTimestamp(JsonElement element, out DateTimeOffset timestamp)
     {
-        var property = RequiredProperty(element, TimestampProperty, InvalidTimestampReason);
-        Require(
-            property.ValueKind == JsonValueKind.String
-                && property.TryGetDateTime(out var dateTime)
-                && dateTime.Kind != DateTimeKind.Unspecified
-                && property.TryGetDateTimeOffset(out _),
-            InvalidTimestampReason
-        );
-        return property.GetDateTimeOffset().ToUniversalTime();
+        timestamp = default;
+        if (
+            !element.TryGetProperty(TimestampProperty, out var property)
+            || property.ValueKind != JsonValueKind.String
+            || !property.TryGetDateTime(out var dateTime)
+            || dateTime.Kind == DateTimeKind.Unspecified
+            || !property.TryGetDateTimeOffset(out timestamp)
+        )
+        {
+            return false;
+        }
+
+        timestamp = timestamp.ToUniversalTime();
+        return true;
     }
 
-    private static long ReadVersion(JsonElement element)
+    private static bool TryReadVersion(JsonElement element, out long version)
     {
-        var property = RequiredProperty(element, VersionProperty, InvalidVersionReason);
-        Require(
-            property.ValueKind == JsonValueKind.Number
-                && property.TryGetInt64(out var version)
-                && version >= CmsEventLimits.MinVersion,
-            InvalidVersionReason
-        );
-        return property.GetInt64();
+        version = default;
+        return element.TryGetProperty(VersionProperty, out var property)
+            && property.ValueKind == JsonValueKind.Number
+            && property.TryGetInt64(out version)
+            && version >= CmsEventLimits.MinVersion;
     }
 
-    private static string ReadPayload(JsonElement element)
+    // A missing payload arrives as default(JsonElement), whose kind is Undefined.
+    private static string? PayloadBrokenRule(JsonElement payload)
     {
-        var property = RequiredProperty(element, PayloadProperty, PayloadNotObjectReason);
-        Require(property.ValueKind == JsonValueKind.Object, PayloadNotObjectReason);
-        var payload = property.GetRawText();
-        Require(
-            Encoding.UTF8.GetByteCount(payload) <= CmsEventLimits.MaxPayloadBytes,
-            PayloadTooLargeReason
-        );
-        Require(!ContainsNullChar(property), PayloadNullCharReason);
-        return payload;
-    }
+        if (payload.ValueKind != JsonValueKind.Object)
+        {
+            return PayloadNotObjectReason;
+        }
 
-    private static JsonElement RequiredProperty(JsonElement element, string name, string reason)
-    {
-        Require(element.TryGetProperty(name, out var property), reason);
-        return property;
+        if (Encoding.UTF8.GetByteCount(payload.GetRawText()) > CmsEventLimits.MaxPayloadBytes)
+        {
+            return PayloadTooLargeReason;
+        }
+
+        return ContainsNullChar(payload) ? PayloadNullCharReason : null;
     }
 
     private static bool HasDuplicateKey(JsonElement element) =>
@@ -163,15 +184,4 @@ public static class CmsEventValidator
             JsonValueKind.Array => element.EnumerateArray().Any(ContainsNullChar),
             _ => false,
         };
-
-    private static void Require(bool rule, string reason)
-    {
-        if (!rule)
-        {
-            throw new RuleBrokenException(reason);
-        }
-    }
-
-    // Private control flow: a broken rule never leaves this class as an exception.
-    private sealed class RuleBrokenException(string reason) : Exception(reason);
 }

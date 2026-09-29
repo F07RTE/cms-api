@@ -28,14 +28,17 @@ public static class AuthServiceCollectionExtensions
             .ValidateOnStart();
 
         services
-            .AddAuthentication(AuthSchemes.Basic)
+            .AddAuthentication(AuthNames.BasicScheme)
             .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>(
-                AuthSchemes.Basic,
+                AuthNames.BasicScheme,
                 configureOptions: null
             );
         services
             .AddAuthorizationBuilder()
-            .AddPolicy(AuthPolicies.CmsClient, policy => policy.RequireRole(AuthRoles.CmsClient))
+            .AddPolicy(
+                AuthNames.CmsClientPolicy,
+                policy => policy.RequireRole(AuthNames.CmsClientRole)
+            )
             .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
         return services;
     }

@@ -261,7 +261,7 @@ public sealed class InboxProcessorTests : IntegrationTest
         ]);
 
         // One more round than MaxAttempts: a Dead Batch is never claimed again.
-        for (var round = 0; round <= InboxRetryPolicy.DefaultMaxAttempts; round++)
+        for (var round = 0; round <= InboxProcessor.MaxAttempts; round++)
         {
             await Orchestrator.DrainInboxAsync(new ThrowingBatchProcessor());
             Orchestrator.Clock.Advance(RetryBackoff.MaxDelay);
@@ -269,7 +269,7 @@ public sealed class InboxProcessorTests : IntegrationTest
 
         var batch = (await Orchestrator.ReadInboxAsync()).Should().ContainSingle().Subject;
         batch.Status.Should().Be(InboxStatus.Dead);
-        batch.Attempts.Should().Be(InboxRetryPolicy.DefaultMaxAttempts);
+        batch.Attempts.Should().Be(InboxProcessor.MaxAttempts);
         batch.LastError.Should().Contain(ThrowingBatchProcessor.Failure);
     }
 

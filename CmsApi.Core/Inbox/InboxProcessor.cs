@@ -7,11 +7,13 @@ namespace CmsApi.Core.Inbox;
 public sealed class InboxProcessor(
     IInbox inbox,
     IBatchProcessor batchProcessor,
-    InboxRetryPolicy retryPolicy,
     TimeProvider timeProvider,
     ILogger<InboxProcessor> logger
 )
 {
+    /// <summary>Attempts a Batch gets before it becomes a Dead Batch.</summary>
+    public const int MaxAttempts = 5;
+
     /// <summary>Claims, processes and completes the next due Batch. False when there was none.</summary>
     public async Task<bool> ProcessNextBatchAsync(CancellationToken cancellationToken)
     {
@@ -35,16 +37,12 @@ public sealed class InboxProcessor(
         return true;
     }
 
-    /// <summary>Recovers the Batches a crashed or stopped worker left Processing.</summary>
-    public Task RecoverOrphansAsync(CancellationToken cancellationToken) =>
-        inbox.RecoverOrphansAsync(cancellationToken);
-
     private Task FailAsync(
         ClaimedBatch batch,
         Exception exception,
         CancellationToken cancellationToken
     ) =>
-        batch.Attempts >= retryPolicy.MaxAttempts
+        batch.Attempts >= MaxAttempts
             ? MarkDeadAsync(batch, exception, cancellationToken)
             : RetryLaterAsync(batch, exception, cancellationToken);
 

@@ -17,16 +17,8 @@ internal sealed class PgLeaderLock(IOptions<ConnectionStringOptions> options) : 
     private const string TryLockSql = $"SELECT pg_try_advisory_lock(@{KeyParameter})";
     private const string UnlockSql = $"SELECT pg_advisory_unlock(@{KeyParameter})";
 
-    // A bigint key shows in pg_locks split across classid (high half) and objid (low half).
-    private const string IsHeldSql = $"""
-        SELECT EXISTS (
-            SELECT 1 FROM pg_locks
-            WHERE locktype = 'advisory'
-              AND (classid::bigint << 32) | objid::bigint = @{KeyParameter}
-              AND pid = pg_backend_pid()
-              AND granted
-        )
-        """;
+    // A session lock is held until unlocked or the session ends: a live session still holds it.
+    private const string IsSessionAliveSql = "SELECT true";
 
     private NpgsqlConnection? connection;
 
@@ -64,18 +56,14 @@ internal sealed class PgLeaderLock(IOptions<ConnectionStringOptions> options) : 
 
         try
         {
-            if (await QueryFlagAsync(IsHeldSql, cancellationToken))
-            {
-                return true;
-            }
+            return await QueryFlagAsync(IsSessionAliveSql, cancellationToken);
         }
         catch (NpgsqlException)
         {
-            // The connection is gone, and the lock with it.
+            // The session is gone, and the lock with it.
+            await CloseAsync();
+            return false;
         }
-
-        await CloseAsync();
-        return false;
     }
 
     public ValueTask DisposeAsync() => new(StepDownAsync());

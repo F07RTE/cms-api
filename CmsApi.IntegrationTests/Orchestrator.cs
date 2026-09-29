@@ -143,8 +143,8 @@ public static class Orchestrator
     public static async Task RecoverOrphansAsync()
     {
         await using var scope = CreateScope();
-        var processor = scope.ServiceProvider.GetRequiredService<InboxProcessor>();
-        await processor.RecoverOrphansAsync(CancellationToken.None);
+        var inbox = scope.ServiceProvider.GetRequiredService<IInbox>();
+        await inbox.RecoverOrphansAsync(CancellationToken.None);
     }
 
     /// <summary>A fresh leader lock, as one worker replica holds it.</summary>

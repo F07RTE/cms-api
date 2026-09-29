@@ -11,7 +11,7 @@ namespace CmsApi.Controllers;
 /// <summary>The CMS webhook. Stores the Batch in the Inbox; the worker processes it later.</summary>
 [ApiController]
 [Route("cms/events")]
-[Authorize(Policy = AuthPolicies.CmsClient)]
+[Authorize(Policy = AuthNames.CmsClientPolicy)]
 public sealed class CmsEventsController(IInbox inbox) : ControllerBase
 {
     [HttpPost]

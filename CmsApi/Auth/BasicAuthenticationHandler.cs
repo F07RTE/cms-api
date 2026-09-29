@@ -77,7 +77,7 @@ public sealed class BasicAuthenticationHandler(
         [
             new(ClaimTypes.NameIdentifier, CmsClientId),
             new(ClaimTypes.Name, credentials.Username),
-            new(ClaimTypes.Role, AuthRoles.CmsClient),
+            new(ClaimTypes.Role, AuthNames.CmsClientRole),
         ];
         var principal = new ClaimsPrincipal(new ClaimsIdentity(claims, Scheme.Name));
         return new AuthenticationTicket(principal, Scheme.Name);

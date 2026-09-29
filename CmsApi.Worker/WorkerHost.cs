@@ -1,7 +1,5 @@
 using CmsApi.Core;
-using CmsApi.Core.Inbox;
 using CmsApi.Data;
-using Microsoft.Extensions.Options;
 
 namespace CmsApi.Worker;
 
@@ -13,10 +11,6 @@ public static class WorkerHost
 
     public static HostApplicationBuilder Configure(HostApplicationBuilder builder)
     {
-        // Before AddCmsCore, whose default policy only fills the gap for the API host.
-        builder.Services.AddSingleton(provider => new InboxRetryPolicy(
-            provider.GetRequiredService<IOptions<WorkerOptions>>().Value.MaxAttempts
-        ));
         builder.Services.AddCmsCore();
         builder.Services.AddCmsWriteData(builder.Configuration);
         builder
@@ -25,10 +19,6 @@ public static class WorkerHost
             .Validate(
                 options => options.PollInterval > TimeSpan.Zero,
                 $"{WorkerOptions.SectionName}:{nameof(WorkerOptions.PollInterval)} must be positive."
-            )
-            .Validate(
-                options => options.MaxAttempts > 0,
-                $"{WorkerOptions.SectionName}:{nameof(WorkerOptions.MaxAttempts)} must be positive."
             )
             .ValidateOnStart();
         builder.Services.Configure<HostOptions>(options =>

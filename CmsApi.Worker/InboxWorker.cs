@@ -4,7 +4,7 @@ using Microsoft.Extensions.Options;
 namespace CmsApi.Worker;
 
 /// <summary>
-/// Leads the Inbox while it holds the leader lock: recovers orphans, then drains back to back and
+/// Leads the Inbox while it holds the leader lock: recovers Orphaned Batches, then drains back to back and
 /// sleeps for the poll interval when nothing is due. Without the lock it idles and retries.
 /// </summary>
 internal sealed class InboxWorker(
@@ -38,14 +38,21 @@ internal sealed class InboxWorker(
     {
         if (!await leaderLock.TryAcquireAsync(stoppingToken))
         {
-            logger.LogDebug("Another worker holds the leader lock; idling");
+            logger.LogDebug("Another worker is Leader; idling");
             return;
         }
 
-        logger.LogInformation("Worker is leader; recovering orphaned Batches");
-        await InScopeAsync(processor => processor.RecoverOrphansAsync(stoppingToken));
+        logger.LogInformation("Worker is Leader; recovering Orphaned Batches");
+        await RecoverOrphansAsync(stoppingToken);
         await DrainWhileLeaderAsync(stoppingToken);
-        logger.LogWarning("Worker lost the leader lock; stepping down");
+        logger.LogWarning("Worker is no longer Leader; stepping down");
+    }
+
+    private async Task RecoverOrphansAsync(CancellationToken stoppingToken)
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var inbox = scope.ServiceProvider.GetRequiredService<IInbox>();
+        await inbox.RecoverOrphansAsync(stoppingToken);
     }
 
     // The lock is re-checked before every claim, so a worker that lost it stops claiming.
@@ -53,30 +60,21 @@ internal sealed class InboxWorker(
     {
         while (await leaderLock.IsHeldAsync(stoppingToken))
         {
-            var processed = await InScopeAsync(processor =>
-                processor.ProcessNextBatchAsync(stoppingToken)
-            );
-            if (!processed)
+            if (!await ProcessNextBatchAsync(stoppingToken))
             {
                 await SleepAsync(stoppingToken);
             }
         }
     }
 
-    private Task SleepAsync(CancellationToken stoppingToken) =>
-        Task.Delay(options.Value.PollInterval, timeProvider, stoppingToken);
-
-    // A scope per call, so each Batch gets a fresh DbContext.
-    private async Task<T> InScopeAsync<T>(Func<InboxProcessor, Task<T>> action)
+    // A scope per Batch, so each Batch gets a fresh DbContext.
+    private async Task<bool> ProcessNextBatchAsync(CancellationToken stoppingToken)
     {
         await using var scope = scopeFactory.CreateAsyncScope();
-        return await action(scope.ServiceProvider.GetRequiredService<InboxProcessor>());
+        var processor = scope.ServiceProvider.GetRequiredService<InboxProcessor>();
+        return await processor.ProcessNextBatchAsync(stoppingToken);
     }
 
-    private Task InScopeAsync(Func<InboxProcessor, Task> action) =>
-        InScopeAsync(async processor =>
-        {
-            await action(processor);
-            return true;
-        });
+    private Task SleepAsync(CancellationToken stoppingToken) =>
+        Task.Delay(options.Value.PollInterval, timeProvider, stoppingToken);
 }

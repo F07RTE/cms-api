@@ -10,8 +10,6 @@ public static class CoreServiceCollectionExtensions
     public static IServiceCollection AddCmsCore(this IServiceCollection services)
     {
         services.TryAddSingleton(TimeProvider.System);
-        // A host may register its own policy first; the default covers the rest.
-        services.TryAddSingleton(new InboxRetryPolicy());
         services.AddScoped<IBatchProcessor, BatchProcessor>();
         services.AddScoped<InboxProcessor>();
         return services;
