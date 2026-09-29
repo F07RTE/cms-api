@@ -31,6 +31,8 @@ public static class Orchestrator
 {
     public const string BatchRoute = "/cms/events";
     public const string ContentEntitiesRoute = "/entities";
+    public const string ReaderUsername = "reader";
+    public const string AdminUsername = "admin";
 
     private const string TestingEnvironment = "Testing";
 
@@ -121,6 +123,16 @@ public static class Orchestrator
     {
         using var client = WithBasicAuth(CreateClient(), credentials);
         return await client.GetAsync($"{ContentEntitiesRoute}/{id}");
+    }
+
+    /// <summary>Gets <c>/entities</c> with the query string as given, e.g. <c>?limit=2</c>.</summary>
+    public static async Task<HttpResponseMessage> ListContentEntitiesAsync(
+        BasicCredentials credentials,
+        string query = ""
+    )
+    {
+        using var client = WithBasicAuth(CreateClient(), credentials);
+        return await client.GetAsync($"{ContentEntitiesRoute}{query}");
     }
 
     /// <summary>A <c>publish</c> or <c>unPublish</c> CMS Event, as the CMS Client sends it.</summary>
@@ -219,16 +231,37 @@ public static class Orchestrator
 
     /// <summary>Stores a Visible Content Entity with placeholder CMS data.</summary>
     public static Task<ContentEntity> SeedVisibleContentEntityAsync(string id) =>
-        SeedEntityAsync(
-            new ContentEntity
-            {
-                Id = id,
-                Version = 1,
-                Payload = "{}",
-                IsPublished = true,
-                LastEventAt = Clock.GetUtcNow(),
-            }
-        );
+        SeedEntityAsync(NewContentEntity(id, Clock.GetUtcNow(), isPublished: true));
+
+    /// <summary>A Content Entity as the worker would store it. Not saved: pass it to <see cref="SeedEntityAsync"/>.</summary>
+    public static ContentEntity NewContentEntity(
+        string id,
+        DateTimeOffset lastEventAt,
+        bool isPublished,
+        long version = 1,
+        string payload = "{}"
+    ) =>
+        new()
+        {
+            Id = id,
+            Version = version,
+            Payload = payload,
+            IsPublished = isPublished,
+            LastEventAt = lastEventAt,
+        };
+
+    /// <summary>Sets the admin columns as an Admin disabling it would.</summary>
+    public static ContentEntity Disable(
+        ContentEntity contentEntity,
+        string adminUsername,
+        DateTimeOffset disabledAt
+    )
+    {
+        contentEntity.IsDisabledByAdmin = true;
+        contentEntity.DisabledAt = disabledAt;
+        contentEntity.DisabledBy = adminUsername;
+        return contentEntity;
+    }
 
     /// <summary>Stores a Content Entity directly, as if earlier Batches had created it.</summary>
     public static async Task<ContentEntity> SeedEntityAsync(ContentEntity contentEntity)

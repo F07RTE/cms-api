@@ -30,6 +30,10 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
     public void Configure(EntityTypeBuilder<User> builder)
     {
         builder.ToTable(TableName);
+        // Lowercased on every write, so the unique index and the login lookup ignore case.
+        builder
+            .Property(user => user.Username)
+            .HasConversion(username => username.ToLowerInvariant(), username => username);
         builder.HasIndex(user => user.Username).IsUnique();
         builder.Property(user => user.Role).HasConversion<string>();
         builder.HasData(Admin, Reader);

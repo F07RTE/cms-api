@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using CmsApi.Core.ContentEntities;
 using CmsApi.Core.EventLog;
 using CmsApi.Core.Inbox;
@@ -64,6 +65,26 @@ public static class DataServiceCollectionExtensions
         services.AddTransient<ILeaderLock, PgLeaderLock>();
         services.AddScoped<IEventLog, EfEventLog>();
         services.AddScoped<IContentEntityStore, EfContentEntityStore>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the <see cref="IContentEntityReader"/> for <paramref name="role"/>, keyed by it,
+    /// projecting to <typeparamref name="T"/>. Its queries are compiled once, here.
+    /// </summary>
+    public static IServiceCollection AddContentEntityReader<T>(
+        this IServiceCollection services,
+        UserRole role,
+        Expression<Func<ContentEntity, T>> projection
+    )
+        where T : class, IProjectedContentEntity
+    {
+        var queries = new ContentEntityQueries<T>(role, projection);
+        services.AddKeyedScoped<IContentEntityReader>(
+            role,
+            (provider, _) =>
+                new EfContentEntityReader<T>(provider.GetRequiredService<ReadDbContext>(), queries)
+        );
         return services;
     }
 

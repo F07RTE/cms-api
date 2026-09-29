@@ -1,4 +1,6 @@
+using System.Linq.Expressions;
 using System.Text.Json.Serialization;
+using CmsApi.Core.ContentEntities;
 using CmsApi.Data.ContentEntities;
 using CmsApi.Http;
 
@@ -10,10 +12,11 @@ public sealed record ContentEntityResponse(
     long Version,
     [property: JsonConverter(typeof(RawJsonConverter))] string Payload,
     DateTimeOffset UpdatedAt
-)
+) : IProjectedContentEntity
 {
-    public static ContentEntityResponse From(ContentEntity contentEntity) =>
-        new(
+    /// <summary>The mapping, as an expression, so a query can project to this record in SQL.</summary>
+    public static readonly Expression<Func<ContentEntity, ContentEntityResponse>> Projection =
+        contentEntity => new ContentEntityResponse(
             contentEntity.Id,
             contentEntity.Version,
             contentEntity.Payload,

@@ -1,4 +1,6 @@
+using System.Linq.Expressions;
 using System.Text.Json.Serialization;
+using CmsApi.Core.ContentEntities;
 using CmsApi.Data.ContentEntities;
 using CmsApi.Http;
 
@@ -14,10 +16,11 @@ public sealed record AdminContentEntityResponse(
     bool IsDisabledByAdmin,
     DateTimeOffset? DisabledAt,
     string? DisabledBy
-)
+) : IProjectedContentEntity
 {
-    public static AdminContentEntityResponse From(ContentEntity contentEntity) =>
-        new(
+    /// <summary>The mapping, as an expression, so a query can project to this record in SQL.</summary>
+    public static readonly Expression<Func<ContentEntity, AdminContentEntityResponse>> Projection =
+        contentEntity => new AdminContentEntityResponse(
             contentEntity.Id,
             contentEntity.Version,
             contentEntity.Payload,

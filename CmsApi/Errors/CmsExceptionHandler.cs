@@ -37,7 +37,7 @@ public sealed partial class CmsExceptionHandler(
     private static int StatusCodeFor(Exception exception) =>
         exception switch
         {
-            InvalidBatchException => StatusCodes.Status400BadRequest,
+            InvalidBatchException or InvalidPageRequestException => StatusCodes.Status400BadRequest,
             BatchTooLargeException => StatusCodes.Status413PayloadTooLarge,
             _ => StatusCodes.Status500InternalServerError,
         };
