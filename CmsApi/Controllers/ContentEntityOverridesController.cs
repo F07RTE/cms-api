@@ -1,5 +1,6 @@
 using CmsApi.Auth;
 using CmsApi.Core.ContentEntities;
+using CmsApi.Dtos;
 using CmsApi.Errors;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +11,10 @@ namespace CmsApi.Controllers;
 [ApiController]
 [Route("entities/{id}")]
 [Authorize(Policy = AuthNames.AdminOnlyPolicy)]
+[ProducesResponseType<AdminContentEntityResponse>(StatusCodes.Status200OK)]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
 public sealed class ContentEntityOverridesController(IContentEntityOverrides overrides)
     : ControllerBase
 {

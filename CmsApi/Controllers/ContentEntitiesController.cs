@@ -13,12 +13,16 @@ namespace CmsApi.Controllers;
 [ApiController]
 [Route("entities")]
 [Authorize(Policy = AuthNames.ApiUserPolicy)]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
 public sealed class ContentEntitiesController(
     [FromKeyedServices(UserRole.User)] IContentEntityReader userReader,
     [FromKeyedServices(UserRole.Admin)] IContentEntityReader adminReader
 ) : ControllerBase
 {
     [HttpGet]
+    [ProducesResponseType<ContentEntityPageResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ListAsync(
         [FromQuery] ContentEntityPageQueryString query,
         CancellationToken cancellationToken
@@ -31,6 +35,8 @@ public sealed class ContentEntitiesController(
 
     // Hidden, unknown and deleted all answer 404, so a User can't tell which one it was.
     [HttpGet("{id}")]
+    [ProducesResponseType<ContentEntityResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAsync(string id, CancellationToken cancellationToken)
     {
         var contentEntity = await ReaderForUser().FindAsync(id, cancellationToken);

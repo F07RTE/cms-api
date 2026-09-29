@@ -73,6 +73,15 @@ curl -u reader:reader123 http://localhost:5290/entities
 
 On Windows PowerShell, call `curl.exe`, not the `curl` alias.
 
+### API docs
+
+With the API running in Development:
+
+- **Scalar UI:** http://localhost:5290/scalar. It has example calls for every route. Click "Authorize" and enter one of the dev credentials above.
+- **OpenAPI document:** http://localhost:5290/openapi/v1.json
+
+Both are served anonymously, and only when `ApiDocs:Enabled` is true. That is set in `appsettings.Development.json`; outside Development they're off.
+
 ### Tests and lint
 
 ```sh

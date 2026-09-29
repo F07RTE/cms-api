@@ -1,3 +1,4 @@
+using CmsApi.ApiDocs;
 using CmsApi.Auth;
 using CmsApi.Core;
 using CmsApi.Data;
@@ -13,6 +14,7 @@ builder.Services.AddCmsAuth(builder.Configuration);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<CmsExceptionHandler>();
 builder.Services.AddControllers();
+builder.Services.AddCmsApiDocs(builder.Configuration);
 
 var app = builder.Build();
 
@@ -20,5 +22,6 @@ app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapCmsApiDocs();
 
 app.Run();

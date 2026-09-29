@@ -32,6 +32,8 @@ public static class Orchestrator
 {
     public const string BatchRoute = "/cms/events";
     public const string ContentEntitiesRoute = "/entities";
+    public const string OpenApiDocumentRoute = "/openapi/v1.json";
+    public const string ScalarRoute = "/scalar";
     public const string ReaderUsername = "reader";
     public const string AdminUsername = "admin";
 
@@ -57,6 +59,10 @@ public static class Orchestrator
     public static AsyncServiceScope CreateScope() => Factory.Services.CreateAsyncScope();
 
     public static HttpClient CreateClient() => Factory.CreateClient();
+
+    /// <summary>A client for a host started with one configuration value overridden.</summary>
+    public static HttpClient CreateClientWithSetting(string key, string value) =>
+        Factory.WithWebHostBuilder(builder => builder.UseSetting(key, value)).CreateClient();
 
     public static HttpClient WithBasicAuth(HttpClient client, BasicCredentials credentials)
     {

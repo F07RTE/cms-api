@@ -1,3 +1,4 @@
+using CmsApi.ApiDocs;
 using CmsApi.Auth;
 using CmsApi.Core.Batches;
 using CmsApi.Core.Inbox;
@@ -15,6 +16,12 @@ namespace CmsApi.Controllers;
 public sealed class CmsEventsController(IInbox inbox) : ControllerBase
 {
     [HttpPost]
+    [BatchRequestBody]
+    [ProducesResponseType<BatchAcceptedResponse>(StatusCodes.Status202Accepted)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
     public async Task<ActionResult<BatchAcceptedResponse>> PostAsync(
         CancellationToken cancellationToken
     )
