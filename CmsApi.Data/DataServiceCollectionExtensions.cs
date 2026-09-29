@@ -1,3 +1,5 @@
+using CmsApi.Core.Inbox;
+using CmsApi.Data.Inbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,6 +51,7 @@ public static class DataServiceCollectionExtensions
             (provider, options) =>
                 options.UseNpgsql(ConnectionStrings(provider).Writer).UseSnakeCaseNamingConvention()
         );
+        services.AddScoped<IInbox, EfInbox>();
         return services;
     }
 
