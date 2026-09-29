@@ -1,0 +1,8 @@
+<Solution>
+    <Project Path="CmsApi.Core/CmsApi.Core.csproj" />
+    <Project Path="CmsApi.Data/CmsApi.Data.csproj" />
+    <Project Path="CmsApi.IntegrationTests/CmsApi.IntegrationTests.csproj" />
+    <Project Path="CmsApi.UnitTests/CmsApi.UnitTests.csproj" />
+    <Project Path="CmsApi.Worker/CmsApi.Worker.csproj" />
+    <Project Path="CmsApi/CmsApi.csproj" />
+</Solution>

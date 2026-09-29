@@ -1,0 +1,22 @@
+name: cms-api
+
+services:
+  postgres:
+    image: postgres:17-bookworm
+    environment:
+      # Bootstrap superuser, used only by the init script. The app logs in as cms_writer / cms_reader.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_local
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: pg_isready -h 127.0.0.1 -d cms_api_test -U cms_writer
+      interval: 2s
+      timeout: 5s
+      retries: 15
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

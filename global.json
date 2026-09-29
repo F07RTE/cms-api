@@ -1,0 +1,15 @@
+{
+    "sdk": {
+        "version": "10.0.100",
+        "rollForward": "latestFeature"
+    },
+    "scripts": {
+        "services:up": "docker compose -f infra/compose.yaml up -d --wait",
+        "services:down": "docker compose -f infra/compose.yaml down",
+        "migrations:add": "dotnet ef migrations add --project CmsApi.Data --startup-project CmsApi --context WriteDbContext --output-dir Migrations",
+        "migrations:up": "dotnet ef database update --project CmsApi.Data --startup-project CmsApi --context WriteDbContext -- --environment Development",
+        "test": "dotnet test",
+        "lint:run": "dotnet csharpier format .",
+        "lint:check": "dotnet csharpier check ."
+    }
+}
