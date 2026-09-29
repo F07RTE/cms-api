@@ -1,6 +1,6 @@
 # Deletes are final (tombstone wins across batches)
 
-A `delete` hard-deletes the Content Entity and writes a Tombstone. Any later CMS Event for that id is skipped, whatever its timestamp, and so is a delete older than the entity's last event. Timestamps only order events inside one Batch. We assume the CMS never reuses ids. With that assumption, a replayed or late `publish` must not resurrect deleted, possibly confidential content; that risk outweighs supporting a CMS restore we have no evidence exists.
+A `delete` hard-deletes the Content Entity and writes a Tombstone. Any later CMS Event for that id is skipped, whatever its timestamp. A delete older than the entity's last event still applies: deletes are CMS truth. Timestamps only order events inside one Batch. We assume the CMS never reuses ids. With that assumption, a replayed or late `publish` must not resurrect deleted, possibly confidential content; that risk outweighs supporting a CMS restore we have no evidence exists.
 
 ## Considered Options
 

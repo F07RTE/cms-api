@@ -9,6 +9,7 @@ using CmsApi.Data;
 using CmsApi.Data.ContentEntities;
 using CmsApi.Data.EventLog;
 using CmsApi.Data.Inbox;
+using CmsApi.Data.Tombstones;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -130,6 +131,13 @@ public static class Orchestrator
         await using var scope = CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<WriteDbContext>();
         return await context.ContentEntities.OrderBy(entity => entity.Id).ToListAsync();
+    }
+
+    public static async Task<List<Tombstone>> ReadTombstonesAsync()
+    {
+        await using var scope = CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<WriteDbContext>();
+        return await context.Tombstones.OrderBy(tombstone => tombstone.Id).ToListAsync();
     }
 
     public static async Task<List<EventLogEntry>> ReadEventLogAsync()

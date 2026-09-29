@@ -1,6 +1,7 @@
 using CmsApi.Data.ContentEntities;
 using CmsApi.Data.EventLog;
 using CmsApi.Data.Inbox;
+using CmsApi.Data.Tombstones;
 using Microsoft.EntityFrameworkCore;
 
 namespace CmsApi.Data;
@@ -15,6 +16,8 @@ public abstract class CmsDbContext : DbContext
     public DbSet<ContentEntity> ContentEntities => Set<ContentEntity>();
 
     public DbSet<EventLogEntry> EventLog => Set<EventLogEntry>();
+
+    public DbSet<Tombstone> Tombstones => Set<Tombstone>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) =>
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(CmsDbContext).Assembly);

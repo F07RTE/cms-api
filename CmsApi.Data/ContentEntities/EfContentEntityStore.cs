@@ -2,6 +2,7 @@ using CmsApi.Core.ContentEntities;
 using CmsApi.Core.Events;
 using CmsApi.Core.Events.Rules;
 using CmsApi.Data.EventLog;
+using CmsApi.Data.Tombstones;
 using Microsoft.EntityFrameworkCore;
 
 namespace CmsApi.Data.ContentEntities;
@@ -12,7 +13,7 @@ internal sealed class EfContentEntityStore(WriteDbContext context, TimeProvider 
     public async Task ApplyGroupAsync(
         long batchId,
         string contentEntityId,
-        Func<ContentEntityState?, GroupDecision> decide,
+        Func<ContentEntityState?, TombstoneState?, GroupDecision> decide,
         CancellationToken cancellationToken
     )
     {
@@ -20,10 +21,10 @@ internal sealed class EfContentEntityStore(WriteDbContext context, TimeProvider 
             cancellationToken
         );
         var row = await LockAsync(contentEntityId, cancellationToken);
-        var decision = decide(row is null ? null : ToState(row));
-        Write(row, contentEntityId, decision.FinalState);
-
+        var storedTombstone = await FindTombstoneAsync(contentEntityId, cancellationToken);
+        var decision = decide(row is null ? null : ToState(row), storedTombstone);
         var processedAt = timeProvider.GetUtcNow();
+        WriteFinal(row, storedTombstone, contentEntityId, decision, processedAt);
         context.EventLog.AddRange(
             decision.DecidedEvents.Select(decided =>
                 EventLogEntries.Decided(batchId, decided, processedAt)
@@ -41,6 +42,62 @@ internal sealed class EfContentEntityStore(WriteDbContext context, TimeProvider 
             .ContentEntities.FromSql($"SELECT * FROM content_entities WHERE id = {id} FOR UPDATE")
             .ToListAsync(cancellationToken);
         return rows.SingleOrDefault();
+    }
+
+    private async Task<TombstoneState?> FindTombstoneAsync(
+        string id,
+        CancellationToken cancellationToken
+    )
+    {
+        var tombstone = await context.Tombstones.FindAsync([id], cancellationToken);
+        return tombstone is null ? null : new TombstoneState(tombstone.DeletedAt);
+    }
+
+    // An existing Tombstone is final: the group changed nothing.
+    private void WriteFinal(
+        ContentEntity? row,
+        TombstoneState? storedTombstone,
+        string id,
+        GroupDecision decision,
+        DateTimeOffset processedAt
+    )
+    {
+        if (storedTombstone is not null)
+        {
+            return;
+        }
+
+        if (decision.FinalTombstone is null)
+        {
+            Write(row, id, decision.FinalState);
+        }
+        else
+        {
+            Delete(row, id, decision.FinalTombstone, processedAt);
+        }
+    }
+
+    // Hard delete: the row goes, the Tombstone takes its place in the same transaction.
+    private void Delete(
+        ContentEntity? row,
+        string id,
+        TombstoneState newTombstone,
+        DateTimeOffset recordedAt
+    )
+    {
+        if (row is not null)
+        {
+            context.ContentEntities.Remove(row);
+        }
+
+        context.Tombstones.Add(
+            new Tombstone
+            {
+                Id = id,
+                DeletedAt = newTombstone.DeletedAt,
+                RecordedAt = recordedAt,
+            }
+        );
     }
 
     private void Write(ContentEntity? row, string id, ContentEntityState? state)

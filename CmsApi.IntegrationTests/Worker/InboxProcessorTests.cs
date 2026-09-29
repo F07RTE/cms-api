@@ -4,6 +4,7 @@ using CmsApi.Core.Events;
 using CmsApi.Core.Inbox;
 using CmsApi.Data.ContentEntities;
 using CmsApi.Data.EventLog;
+using CmsApi.Data.Tombstones;
 using FluentAssertions;
 
 namespace CmsApi.IntegrationTests.Worker;
@@ -168,8 +169,42 @@ public sealed class InboxProcessorTests : IntegrationTest
             .Equal(EventOutcome.Applied, EventOutcome.SkippedDuplicate);
     }
 
+    [Test]
+    public async Task CmsClient_WithDeleteThenLaterPublish()
+    {
+        await Orchestrator.SeedEntityAsync(Seeded("article-1", version: 1));
+        await Orchestrator.PostBatchAsync([Delete("article-1", T2)]);
+        await Orchestrator.DrainInboxAsync();
+        await Orchestrator.PostBatchAsync([Event("publish", "article-1", 2, T3, HelloPayload)]);
+
+        await Orchestrator.DrainInboxAsync();
+
+        (await Orchestrator.ReadContentEntitiesAsync()).Should().BeEmpty();
+        (await Orchestrator.ReadTombstonesAsync())
+            .Should()
+            .ContainSingle()
+            .Which.Should()
+            .BeEquivalentTo(
+                new Tombstone
+                {
+                    Id = "article-1",
+                    DeletedAt = T2,
+                    RecordedAt = Orchestrator.Clock.GetUtcNow(),
+                }
+            );
+        var log = await Orchestrator.ReadEventLogAsync();
+        log.Select(entry => (entry.EventType, entry.Outcome))
+            .Should()
+            .Equal(
+                (CmsEventType.Delete, EventOutcome.Applied),
+                (CmsEventType.Publish, EventOutcome.SkippedDeleted)
+            );
+        log[1].Reason.Should().NotBeNullOrWhiteSpace();
+    }
+
     private static readonly DateTimeOffset T1 = new(2026, 9, 29, 11, 0, 0, TimeSpan.Zero);
     private static readonly DateTimeOffset T2 = T1.AddMinutes(1);
+    private static readonly DateTimeOffset T3 = T2.AddMinutes(1);
 
     private static readonly object HelloPayload = new { title = "Hello" };
 
@@ -187,6 +222,14 @@ public sealed class InboxProcessorTests : IntegrationTest
             version,
             timestamp = timestamp.ToString("O"),
             payload,
+        };
+
+    private static object Delete(string id, DateTimeOffset timestamp) =>
+        new
+        {
+            type = "delete",
+            id,
+            timestamp = timestamp.ToString("O"),
         };
 
     private static ContentEntity Seeded(string id, long version) =>

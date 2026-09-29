@@ -33,7 +33,7 @@ public sealed class BatchProcessor(
             await contentEntityStore.ApplyGroupAsync(
                 batch.BatchId,
                 group.ContentEntityId,
-                stored => EventRules.DecideGroup(stored, group.Events),
+                (stored, tombstone) => EventRules.DecideGroup(stored, tombstone, group.Events),
                 cancellationToken
             );
         }
