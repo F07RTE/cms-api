@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using CmsApi.Core.Batches;
 using CmsApi.Core.Events;
 using CmsApi.Core.Inbox;
 using CmsApi.Data.ContentEntities;
@@ -14,7 +15,9 @@ public sealed class InboxProcessorTests : IntegrationTest
     [Test]
     public async Task CmsClient_WithPublishEvent()
     {
-        await Orchestrator.PostBatchAsync([Event("publish", "article-1", 1, T1, HelloPayload)]);
+        await Orchestrator.PostBatchAsync([
+            Orchestrator.CmsEvent("publish", "article-1", 1, T1, HelloPayload),
+        ]);
 
         await Orchestrator.DrainInboxAsync();
 
@@ -57,7 +60,9 @@ public sealed class InboxProcessorTests : IntegrationTest
     public async Task CmsClient_WithStaleEvent()
     {
         var seeded = await Orchestrator.SeedEntityAsync(Seeded("article-1", version: 2));
-        await Orchestrator.PostBatchAsync([Event("publish", "article-1", 1, T2, HelloPayload)]);
+        await Orchestrator.PostBatchAsync([
+            Orchestrator.CmsEvent("publish", "article-1", 1, T2, HelloPayload),
+        ]);
 
         await Orchestrator.DrainInboxAsync();
 
@@ -74,7 +79,9 @@ public sealed class InboxProcessorTests : IntegrationTest
     [Test]
     public async Task CmsClient_WithUnPublishOfUnknownId()
     {
-        await Orchestrator.PostBatchAsync([Event("unPublish", "article-1", 1, T1, HelloPayload)]);
+        await Orchestrator.PostBatchAsync([
+            Orchestrator.CmsEvent("unPublish", "article-1", 1, T1, HelloPayload),
+        ]);
 
         await Orchestrator.DrainInboxAsync();
 
@@ -94,10 +101,10 @@ public sealed class InboxProcessorTests : IntegrationTest
     [Test]
     public async Task CmsClient_WithOneInvalidEvent()
     {
-        var invalid = Event("publish", "article-1", version: 0, T1, HelloPayload);
+        var invalid = Orchestrator.CmsEvent("publish", "article-1", version: 0, T1, HelloPayload);
         await Orchestrator.PostBatchAsync([
             invalid,
-            Event("publish", "article-2", 1, T1, HelloPayload),
+            Orchestrator.CmsEvent("publish", "article-2", 1, T1, HelloPayload),
         ]);
 
         await Orchestrator.DrainInboxAsync();
@@ -130,7 +137,9 @@ public sealed class InboxProcessorTests : IntegrationTest
         seeded.DisabledAt = T1;
         seeded.DisabledBy = "admin";
         await Orchestrator.SeedEntityAsync(seeded);
-        await Orchestrator.PostBatchAsync([Event("publish", "article-1", 2, T2, HelloPayload)]);
+        await Orchestrator.PostBatchAsync([
+            Orchestrator.CmsEvent("publish", "article-1", 2, T2, HelloPayload),
+        ]);
 
         await Orchestrator.DrainInboxAsync();
 
@@ -153,8 +162,8 @@ public sealed class InboxProcessorTests : IntegrationTest
     public async Task CmsClient_WithReplayedBatchHoldingInvalidEvent()
     {
         await Orchestrator.PostBatchAsync([
-            Event("publish", "article-1", version: 0, T1, HelloPayload),
-            Event("publish", "article-2", 1, T1, HelloPayload),
+            Orchestrator.CmsEvent("publish", "article-1", version: 0, T1, HelloPayload),
+            Orchestrator.CmsEvent("publish", "article-2", 1, T1, HelloPayload),
         ]);
         await Orchestrator.DrainInboxAsync();
         await Orchestrator.RequeueBatchesAsync();
@@ -173,9 +182,11 @@ public sealed class InboxProcessorTests : IntegrationTest
     public async Task CmsClient_WithDeleteThenLaterPublish()
     {
         await Orchestrator.SeedEntityAsync(Seeded("article-1", version: 1));
-        await Orchestrator.PostBatchAsync([Delete("article-1", T2)]);
+        await Orchestrator.PostBatchAsync([Orchestrator.DeleteEvent("article-1", T2)]);
         await Orchestrator.DrainInboxAsync();
-        await Orchestrator.PostBatchAsync([Event("publish", "article-1", 2, T3, HelloPayload)]);
+        await Orchestrator.PostBatchAsync([
+            Orchestrator.CmsEvent("publish", "article-1", 2, T3, HelloPayload),
+        ]);
 
         await Orchestrator.DrainInboxAsync();
 
@@ -202,35 +213,71 @@ public sealed class InboxProcessorTests : IntegrationTest
         log[1].Reason.Should().NotBeNullOrWhiteSpace();
     }
 
+    [Test]
+    public async Task CmsClient_WithBatchOrphanedByCrashedWorker()
+    {
+        await Orchestrator.PostBatchAsync([
+            Orchestrator.CmsEvent("publish", "article-1", 1, T1, HelloPayload),
+        ]);
+        await Orchestrator.OrphanNextBatchAsync();
+
+        await Orchestrator.RecoverOrphansAsync();
+        await Orchestrator.DrainInboxAsync();
+
+        var batch = (await Orchestrator.ReadInboxAsync()).Should().ContainSingle().Subject;
+        batch.Status.Should().Be(InboxStatus.Done);
+        batch.Attempts.Should().Be(2);
+        (await Orchestrator.ReadContentEntitiesAsync())
+            .Should()
+            .ContainSingle()
+            .Which.Id.Should()
+            .Be("article-1");
+    }
+
+    [Test]
+    public async Task CmsClient_WithBatchFailingOnce()
+    {
+        await Orchestrator.PostBatchAsync([
+            Orchestrator.CmsEvent("publish", "article-1", 1, T1, HelloPayload),
+        ]);
+
+        await Orchestrator.DrainInboxAsync(new ThrowingBatchProcessor());
+
+        var batch = (await Orchestrator.ReadInboxAsync()).Should().ContainSingle().Subject;
+        batch.Status.Should().Be(InboxStatus.Pending);
+        batch.Attempts.Should().Be(1);
+        batch
+            .NextAttemptAt.Should()
+            .Be(Orchestrator.Clock.GetUtcNow() + RetryBackoff.After(batch.Attempts));
+        batch.LastError.Should().Contain(ThrowingBatchProcessor.Failure);
+        (await Orchestrator.ReadContentEntitiesAsync()).Should().BeEmpty();
+    }
+
+    [Test]
+    public async Task CmsClient_WithBatchFailingEveryAttempt()
+    {
+        await Orchestrator.PostBatchAsync([
+            Orchestrator.CmsEvent("publish", "article-1", 1, T1, HelloPayload),
+        ]);
+
+        // One more round than MaxAttempts: a Dead Batch is never claimed again.
+        for (var round = 0; round <= InboxRetryPolicy.DefaultMaxAttempts; round++)
+        {
+            await Orchestrator.DrainInboxAsync(new ThrowingBatchProcessor());
+            Orchestrator.Clock.Advance(RetryBackoff.MaxDelay);
+        }
+
+        var batch = (await Orchestrator.ReadInboxAsync()).Should().ContainSingle().Subject;
+        batch.Status.Should().Be(InboxStatus.Dead);
+        batch.Attempts.Should().Be(InboxRetryPolicy.DefaultMaxAttempts);
+        batch.LastError.Should().Contain(ThrowingBatchProcessor.Failure);
+    }
+
     private static readonly DateTimeOffset T1 = new(2026, 9, 29, 11, 0, 0, TimeSpan.Zero);
     private static readonly DateTimeOffset T2 = T1.AddMinutes(1);
     private static readonly DateTimeOffset T3 = T2.AddMinutes(1);
 
     private static readonly object HelloPayload = new { title = "Hello" };
-
-    private static object Event(
-        string type,
-        string id,
-        long version,
-        DateTimeOffset timestamp,
-        object payload
-    ) =>
-        new
-        {
-            type,
-            id,
-            version,
-            timestamp = timestamp.ToString("O"),
-            payload,
-        };
-
-    private static object Delete(string id, DateTimeOffset timestamp) =>
-        new
-        {
-            type = "delete",
-            id,
-            timestamp = timestamp.ToString("O"),
-        };
 
     private static ContentEntity Seeded(string id, long version) =>
         new()
@@ -245,4 +292,13 @@ public sealed class InboxProcessorTests : IntegrationTest
     // jsonb keeps the meaning of the payload, not its bytes.
     private static void ShouldBeSameJson(string actual, string expected) =>
         JsonNode.DeepEquals(JsonNode.Parse(actual), JsonNode.Parse(expected)).Should().BeTrue();
+
+    /// <summary>Stands in for an infrastructure failure: every Batch throws.</summary>
+    private sealed class ThrowingBatchProcessor : IBatchProcessor
+    {
+        public const string Failure = "database unreachable";
+
+        public Task ProcessAsync(ClaimedBatch batch, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException(Failure);
+    }
 }

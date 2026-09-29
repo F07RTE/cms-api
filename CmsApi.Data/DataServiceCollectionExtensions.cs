@@ -56,6 +56,8 @@ public static class DataServiceCollectionExtensions
                 options.UseNpgsql(ConnectionStrings(provider).Writer).UseSnakeCaseNamingConvention()
         );
         services.AddScoped<IInbox, EfInbox>();
+        // Transient: each worker gets its own session, and with it its own claim on the lock.
+        services.AddTransient<ILeaderLock, PgLeaderLock>();
         services.AddScoped<IEventLog, EfEventLog>();
         services.AddScoped<IContentEntityStore, EfContentEntityStore>();
         return services;

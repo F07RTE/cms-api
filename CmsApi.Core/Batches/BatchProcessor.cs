@@ -30,11 +30,13 @@ public sealed class BatchProcessor(
         WarnAboutFutureTimestamps(batch.BatchId, events);
         foreach (var group in CmsEventOrdering.GroupById(events))
         {
+            // Shutdown stops between groups only: a started group always commits.
+            cancellationToken.ThrowIfCancellationRequested();
             await contentEntityStore.ApplyGroupAsync(
                 batch.BatchId,
                 group.ContentEntityId,
                 (stored, tombstone) => EventRules.DecideGroup(stored, tombstone, group.Events),
-                cancellationToken
+                CancellationToken.None
             );
         }
     }

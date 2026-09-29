@@ -18,4 +18,21 @@ public interface IInbox
 
     /// <summary>Marks a claimed Batch <see cref="InboxStatus.Done"/>.</summary>
     Task CompleteAsync(long batchId, CancellationToken cancellationToken);
+
+    /// <summary>Puts a failed Batch back to <see cref="InboxStatus.Pending"/>, due at <paramref name="nextAttemptAt"/>.</summary>
+    Task RetryLaterAsync(
+        long batchId,
+        DateTimeOffset nextAttemptAt,
+        string lastError,
+        CancellationToken cancellationToken
+    );
+
+    /// <summary>Marks a Batch <see cref="InboxStatus.Dead"/>. It is never retried automatically.</summary>
+    Task MarkDeadAsync(long batchId, string lastError, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Puts every <see cref="InboxStatus.Processing"/> Batch back to <see cref="InboxStatus.Pending"/>.
+    /// Only the leader calls it, so those Batches belong to a worker that crashed or stopped.
+    /// </summary>
+    Task RecoverOrphansAsync(CancellationToken cancellationToken);
 }

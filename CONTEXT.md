@@ -22,6 +22,14 @@ Where a received Batch waits until it is processed. Receiving a Batch and proces
 A Batch whose processing kept failing for infrastructure reasons and was given up on. It stays in the Inbox for a person to inspect; it is never retried automatically. Invalid CMS Events never make a Batch dead.
 _Avoid_: Poison message, failed batch (Failed is an Event Outcome)
 
+**Leader**:
+The one worker allowed to process the Inbox. Other workers wait until they can become Leader. A worker that finds it is no longer Leader steps down and stops taking Batches.
+_Avoid_: Master, primary, active worker
+
+**Orphaned Batch**:
+A Batch a worker started processing but never finished, because it crashed or was stopped. Whenever a worker becomes Leader, it returns every Orphaned Batch to the Inbox to be processed again.
+_Avoid_: Stuck batch, abandoned batch
+
 **Tombstone**:
 The record that a Content Entity was deleted. Deletion is final: any later CMS Event for that id is ignored.
 

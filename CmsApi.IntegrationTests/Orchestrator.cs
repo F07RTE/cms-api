@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using CmsApi.Auth;
 using CmsApi.Core.Auth;
+using CmsApi.Core.Batches;
 using CmsApi.Core.Inbox;
 using CmsApi.Data;
 using CmsApi.Data.ContentEntities;
@@ -66,6 +67,32 @@ public static class Orchestrator
         return new BasicCredentials(credentials.Username, credentials.Password);
     }
 
+    /// <summary>A <c>publish</c> or <c>unPublish</c> CMS Event, as the CMS Client sends it.</summary>
+    public static object CmsEvent(
+        string type,
+        string id,
+        long version,
+        DateTimeOffset timestamp,
+        object payload
+    ) =>
+        new
+        {
+            type,
+            id,
+            version,
+            timestamp = timestamp.ToString("O"),
+            payload,
+        };
+
+    /// <summary>A <c>delete</c> CMS Event, as the CMS Client sends it.</summary>
+    public static object DeleteEvent(string id, DateTimeOffset timestamp) =>
+        new
+        {
+            type = "delete",
+            id,
+            timestamp = timestamp.ToString("O"),
+        };
+
     public static Task<HttpResponseMessage> PostBatchAsync(IEnumerable<object> events) =>
         PostBatchAsync(JsonSerializer.Serialize(events));
 
@@ -95,16 +122,34 @@ public static class Orchestrator
     }
 
     /// <summary>Runs the worker's processing until the Inbox has nothing due. No waiting.</summary>
-    public static async Task DrainInboxAsync()
+    public static Task DrainInboxAsync() =>
+        DrainInboxAsync(provider => provider.GetRequiredService<InboxProcessor>());
+
+    /// <summary>Drains the Inbox with <paramref name="batchProcessor"/> in place of the real one.</summary>
+    public static Task DrainInboxAsync(IBatchProcessor batchProcessor) =>
+        DrainInboxAsync(provider =>
+            ActivatorUtilities.CreateInstance<InboxProcessor>(provider, batchProcessor)
+        );
+
+    /// <summary>Claims the next due Batch and never finishes it, as a crashed worker would.</summary>
+    public static async Task OrphanNextBatchAsync()
     {
-        bool processed;
-        do
-        {
-            await using var scope = CreateScope();
-            var processor = scope.ServiceProvider.GetRequiredService<InboxProcessor>();
-            processed = await processor.ProcessNextBatchAsync(CancellationToken.None);
-        } while (processed);
+        await using var scope = CreateScope();
+        var inbox = scope.ServiceProvider.GetRequiredService<IInbox>();
+        await inbox.ClaimNextAsync(CancellationToken.None);
     }
+
+    /// <summary>Runs the recovery a worker runs when it becomes leader.</summary>
+    public static async Task RecoverOrphansAsync()
+    {
+        await using var scope = CreateScope();
+        var processor = scope.ServiceProvider.GetRequiredService<InboxProcessor>();
+        await processor.RecoverOrphansAsync(CancellationToken.None);
+    }
+
+    /// <summary>A fresh leader lock, as one worker replica holds it.</summary>
+    public static ILeaderLock CreateLeaderLock() =>
+        Factory.Services.GetRequiredService<ILeaderLock>();
 
     /// <summary>Puts every Batch back to Pending, as a retry or crash recovery would.</summary>
     public static async Task RequeueBatchesAsync()
@@ -179,4 +224,17 @@ public static class Orchestrator
     }
 
     public static ValueTask DisposeAsync() => Factory.DisposeAsync();
+
+    private static async Task DrainInboxAsync(
+        Func<IServiceProvider, InboxProcessor> createProcessor
+    )
+    {
+        bool processed;
+        do
+        {
+            await using var scope = CreateScope();
+            var processor = createProcessor(scope.ServiceProvider);
+            processed = await processor.ProcessNextBatchAsync(CancellationToken.None);
+        } while (processed);
+    }
 }

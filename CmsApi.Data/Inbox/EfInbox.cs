@@ -1,5 +1,6 @@
 using CmsApi.Core.Inbox;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
 
 namespace CmsApi.Data.Inbox;
 
@@ -43,22 +44,69 @@ internal sealed class EfInbox(WriteDbContext context, TimeProvider timeProvider)
         await context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         context.ChangeTracker.Clear();
-        return new ClaimedBatch(batch.Id, batch.Body);
+        return new ClaimedBatch(batch.Id, batch.Body, batch.Attempts);
     }
 
     public Task CompleteAsync(long batchId, CancellationToken cancellationToken)
     {
         var processedAt = timeProvider.GetUtcNow();
-        return context
-            .InboxBatches.Where(batch => batch.Id == batchId)
+        return UpdateBatchAsync(
+            batchId,
+            setters =>
+                setters
+                    .SetProperty(batch => batch.Status, InboxStatus.Done)
+                    .SetProperty(batch => batch.ProcessedAt, processedAt),
+            cancellationToken
+        );
+    }
+
+    public Task RetryLaterAsync(
+        long batchId,
+        DateTimeOffset nextAttemptAt,
+        string lastError,
+        CancellationToken cancellationToken
+    ) =>
+        UpdateBatchAsync(
+            batchId,
+            setters =>
+                setters
+                    .SetProperty(batch => batch.Status, InboxStatus.Pending)
+                    .SetProperty(batch => batch.NextAttemptAt, nextAttemptAt)
+                    .SetProperty(batch => batch.LastError, lastError),
+            cancellationToken
+        );
+
+    public Task MarkDeadAsync(
+        long batchId,
+        string lastError,
+        CancellationToken cancellationToken
+    ) =>
+        UpdateBatchAsync(
+            batchId,
+            setters =>
+                setters
+                    .SetProperty(batch => batch.Status, InboxStatus.Dead)
+                    .SetProperty(batch => batch.LastError, lastError),
+            cancellationToken
+        );
+
+    // next_attempt_at is already past, so a recovered Batch is due at once.
+    public Task RecoverOrphansAsync(CancellationToken cancellationToken) =>
+        context
+            .InboxBatches.Where(batch => batch.Status == InboxStatus.Processing)
             .ExecuteUpdateAsync(
-                setters =>
-                    setters
-                        .SetProperty(batch => batch.Status, InboxStatus.Done)
-                        .SetProperty(batch => batch.ProcessedAt, processedAt),
+                setters => setters.SetProperty(batch => batch.Status, InboxStatus.Pending),
                 cancellationToken
             );
-    }
+
+    private Task<int> UpdateBatchAsync(
+        long batchId,
+        Action<UpdateSettersBuilder<InboxBatch>> setters,
+        CancellationToken cancellationToken
+    ) =>
+        context
+            .InboxBatches.Where(batch => batch.Id == batchId)
+            .ExecuteUpdateAsync(setters, cancellationToken);
 
     private async Task<InboxBatch?> LockNextDueAsync(CancellationToken cancellationToken)
     {
