@@ -5,7 +5,6 @@ using CmsApi.Core.Events;
 using CmsApi.Core.Events.Rules;
 using CmsApi.Core.Events.Validation;
 using CmsApi.Core.Inbox;
-using Microsoft.Extensions.Logging;
 
 namespace CmsApi.Core.Batches;
 
@@ -13,46 +12,41 @@ namespace CmsApi.Core.Batches;
 public sealed class BatchProcessor(
     IEventLog eventLog,
     IContentEntityStore contentEntityStore,
-    TimeProvider timeProvider,
-    ILogger<BatchProcessor> logger
+    BatchOutcomeLog outcomeLog
 ) : IBatchProcessor
 {
     public async Task ProcessAsync(ClaimedBatch batch, CancellationToken cancellationToken)
     {
         var validations = Validate(batch.Body);
-        await eventLog.RecordFailedAsync(
-            batch.BatchId,
-            [.. validations.OfType<FailedCmsEvent>()],
-            cancellationToken
-        );
+        List<FailedCmsEvent> failedEvents = [.. validations.OfType<FailedCmsEvent>()];
+        // A replay finds its Failed rows already recorded, and already logged.
+        if (await eventLog.RecordFailedAsync(batch.BatchId, failedEvents, cancellationToken))
+        {
+            outcomeLog.Failed(batch.BatchId, failedEvents);
+        }
 
         var events = validations.OfType<ValidCmsEvent>().Select(valid => valid.Event).ToList();
-        WarnAboutFutureTimestamps(batch.BatchId, events);
+        outcomeLog.FutureTimestamps(batch.BatchId, events);
+        await ApplyGroupsAsync(batch.BatchId, events, cancellationToken);
+    }
+
+    private async Task ApplyGroupsAsync(
+        long batchId,
+        IEnumerable<CmsEvent> events,
+        CancellationToken cancellationToken
+    )
+    {
         foreach (var group in CmsEventOrdering.GroupById(events))
         {
             // Shutdown stops between groups only: a started group always commits.
             cancellationToken.ThrowIfCancellationRequested();
-            await contentEntityStore.ApplyGroupAsync(
-                batch.BatchId,
+            var decision = await contentEntityStore.ApplyGroupAsync(
+                batchId,
                 group.ContentEntityId,
                 (stored, tombstone) => EventRules.DecideGroup(stored, tombstone, group.Events),
                 CancellationToken.None
             );
-        }
-    }
-
-    private void WarnAboutFutureTimestamps(long batchId, IEnumerable<CmsEvent> events)
-    {
-        var limit = timeProvider.GetUtcNow() + CmsEventLimits.FutureSkewWarning;
-        foreach (var cmsEvent in events.Where(cmsEvent => cmsEvent.Timestamp > limit))
-        {
-            logger.LogWarning(
-                "CMS Event for {ContentEntityId} in Batch {BatchId} has timestamp {Timestamp}, more than {Skew} ahead of the server clock",
-                cmsEvent.Id,
-                batchId,
-                cmsEvent.Timestamp,
-                CmsEventLimits.FutureSkewWarning
-            );
+            outcomeLog.Decided(batchId, decision);
         }
     }
 

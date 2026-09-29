@@ -10,7 +10,7 @@ namespace CmsApi.Data.ContentEntities;
 internal sealed class EfContentEntityStore(WriteDbContext context, TimeProvider timeProvider)
     : IContentEntityStore
 {
-    public async Task ApplyGroupAsync(
+    public async Task<GroupDecision> ApplyGroupAsync(
         long batchId,
         string contentEntityId,
         Func<ContentEntityState?, TombstoneState?, GroupDecision> decide,
@@ -33,6 +33,7 @@ internal sealed class EfContentEntityStore(WriteDbContext context, TimeProvider 
         await context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         context.ChangeTracker.Clear();
+        return decision;
     }
 
     private async Task<TombstoneState?> FindTombstoneAsync(

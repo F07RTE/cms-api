@@ -3,5 +3,9 @@ namespace CmsApi.IntegrationTests;
 public abstract class IntegrationTest
 {
     [SetUp]
-    public Task ResetDatabaseAsync() => Orchestrator.ResetDatabaseAsync();
+    public Task ResetAsync()
+    {
+        Orchestrator.ClearLogs();
+        return Orchestrator.ResetDatabaseAsync();
+    }
 }

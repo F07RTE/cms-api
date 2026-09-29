@@ -10,6 +10,7 @@ public static class CoreServiceCollectionExtensions
     public static IServiceCollection AddCmsCore(this IServiceCollection services)
     {
         services.TryAddSingleton(TimeProvider.System);
+        services.AddScoped<BatchOutcomeLog>();
         services.AddScoped<IBatchProcessor, BatchProcessor>();
         services.AddScoped<InboxProcessor>();
         return services;

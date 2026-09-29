@@ -7,6 +7,7 @@ using CmsApi.Data.ContentEntities;
 using CmsApi.Data.EventLog;
 using CmsApi.Data.Tombstones;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 
 namespace CmsApi.IntegrationTests.Worker;
 
@@ -114,19 +115,38 @@ public sealed class InboxProcessorTests : IntegrationTest
             .ContainSingle()
             .Which.Id.Should()
             .Be("article-2");
-        var log = await Orchestrator.ReadEventLogAsync();
-        log.Should().HaveCount(2);
-        var failed = log.Should()
+        var eventLog = await Orchestrator.ReadEventLogAsync();
+        eventLog.Should().HaveCount(2);
+        var failed = eventLog
+            .Should()
             .ContainSingle(entry => entry.Outcome == EventOutcome.Failed)
             .Subject;
         failed.ContentEntityId.Should().Be("article-1");
         failed.RawEvent.Should().Be(JsonSerializer.Serialize(invalid));
         failed.Reason.Should().NotBeNullOrWhiteSpace();
-        log.Should()
+        eventLog
+            .Should()
             .ContainSingle(entry => entry.Outcome == EventOutcome.Applied)
             .Which.ContentEntityId.Should()
             .Be("article-2");
-        (await Orchestrator.ReadInboxAsync()).Single().Status.Should().Be(InboxStatus.Done);
+        var batch = (await Orchestrator.ReadInboxAsync()).Single();
+        batch.Status.Should().Be(InboxStatus.Done);
+
+        var recorded = Orchestrator.ReadLogsForBatch(batch.Id);
+        recorded.Should().HaveCount(2);
+        recorded
+            .Should()
+            .ContainSingle(log => log.Level == LogLevel.Warning)
+            .Which.Properties.Should()
+            .Contain(RecordedLog.ContentEntityId, "article-1")
+            .And.Contain(RecordedLog.Outcome, EventOutcome.Failed)
+            .And.Contain(RecordedLog.Reason, failed.Reason);
+        recorded
+            .Should()
+            .ContainSingle(log => log.Level == LogLevel.Information)
+            .Which.Properties.Should()
+            .Contain(RecordedLog.ContentEntityId, "article-2")
+            .And.Contain(RecordedLog.Outcome, EventOutcome.Applied);
     }
 
     [Test]
@@ -170,12 +190,22 @@ public sealed class InboxProcessorTests : IntegrationTest
 
         await Orchestrator.DrainInboxAsync();
 
-        var log = await Orchestrator.ReadEventLogAsync();
-        log.Where(entry => entry.Outcome == EventOutcome.Failed).Should().ContainSingle();
-        log.Where(entry => entry.ContentEntityId == "article-2")
+        var eventLog = await Orchestrator.ReadEventLogAsync();
+        eventLog.Where(entry => entry.Outcome == EventOutcome.Failed).Should().ContainSingle();
+        eventLog
+            .Where(entry => entry.ContentEntityId == "article-2")
             .Select(entry => entry.Outcome)
             .Should()
             .Equal(EventOutcome.Applied, EventOutcome.SkippedDuplicate);
+
+        var batchId = (await Orchestrator.ReadInboxAsync()).Single().Id;
+        Orchestrator
+            .ReadLogsForBatch(batchId)
+            .Where(log => log.Level == LogLevel.Warning)
+            .Should()
+            .ContainSingle()
+            .Which.Properties.Should()
+            .Contain(RecordedLog.Outcome, EventOutcome.Failed);
     }
 
     [Test]

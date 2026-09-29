@@ -20,6 +20,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
 using Respawn;
@@ -41,10 +42,13 @@ public static class Orchestrator
         new DateTimeOffset(2026, 9, 29, 12, 0, 0, TimeSpan.Zero)
     );
 
+    private static readonly RecordedLogs Logs = new();
+
     private static readonly WebApplicationFactory<Program> Factory =
         new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
             builder
                 .UseEnvironment(TestingEnvironment)
+                .ConfigureLogging(logging => logging.AddProvider(Logs))
                 .ConfigureTestServices(services => services.AddSingleton<TimeProvider>(Clock))
         );
 
@@ -301,6 +305,12 @@ public static class Orchestrator
         var context = scope.ServiceProvider.GetRequiredService<WriteDbContext>();
         return await context.EventLog.OrderBy(entry => entry.Id).ToListAsync();
     }
+
+    /// <summary>The logs the host services wrote for <paramref name="batchId"/>.</summary>
+    public static List<RecordedLog> ReadLogsForBatch(long batchId) => Logs.ForBatch(batchId);
+
+    /// <summary>Forgets the logs of earlier tests.</summary>
+    public static void ClearLogs() => Logs.Clear();
 
     public static async Task MigrateDatabaseAsync()
     {

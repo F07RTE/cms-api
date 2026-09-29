@@ -7,7 +7,7 @@ namespace CmsApi.Data.EventLog;
 
 internal sealed class EfEventLog(WriteDbContext context, TimeProvider timeProvider) : IEventLog
 {
-    public async Task RecordFailedAsync(
+    public async Task<bool> RecordFailedAsync(
         long batchId,
         IReadOnlyList<FailedCmsEvent> failedEvents,
         CancellationToken cancellationToken
@@ -15,7 +15,7 @@ internal sealed class EfEventLog(WriteDbContext context, TimeProvider timeProvid
     {
         if (failedEvents.Count == 0 || await HasFailedEntriesAsync(batchId, cancellationToken))
         {
-            return;
+            return false;
         }
 
         var processedAt = timeProvider.GetUtcNow();
@@ -24,6 +24,7 @@ internal sealed class EfEventLog(WriteDbContext context, TimeProvider timeProvid
         );
         await context.SaveChangesAsync(cancellationToken);
         context.ChangeTracker.Clear();
+        return true;
     }
 
     // The Failed rows of a Batch are saved together, so any one means a replay already has them all.
