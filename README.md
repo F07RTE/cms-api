@@ -73,6 +73,8 @@ curl -u reader:reader123 http://localhost:5290/entities
 
 On Windows PowerShell, call `curl.exe`, not the `curl` alias.
 
+For more, [`scenarios/`](scenarios/) has `.http` files that walk each event rule.
+
 ### API docs
 
 With the API running in Development:

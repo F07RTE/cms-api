@@ -1,0 +1,49 @@
+# A delete leaves a Tombstone; every later CMS Event for that id is SkippedDeleted.
+@run = 1
+@id = delete-{{run}}
+@unknownId = never-seen-{{run}}
+
+### Publish v1
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[
+  { "type": "publish", "id": "{{id}}", "version": 1, "timestamp": "2026-01-01T10:00:00Z", "payload": { "title": "Short-lived" } }
+]
+
+### One Batch: delete, then publish v2 later: delete applies, publish SkippedDeleted
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[
+  { "type": "delete", "id": "{{id}}", "timestamp": "2026-01-01T11:00:00Z" },
+  { "type": "publish", "id": "{{id}}", "version": 2, "timestamp": "2026-01-01T11:05:00Z", "payload": { "title": "Back?" } }
+]
+
+### Admin: 404, deleted is gone for everyone
+GET {{host}}/entities/{{id}}
+Authorization: Basic {{adminUsername}} {{adminPassword}}
+
+### Much later publish v9: SkippedDeleted, the Tombstone is final
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[
+  { "type": "publish", "id": "{{id}}", "version": 9, "timestamp": "2026-06-01T10:00:00Z", "payload": { "title": "Resurrected?" } }
+]
+
+### Admin: still 404
+GET {{host}}/entities/{{id}}
+Authorization: Basic {{adminUsername}} {{adminPassword}}
+
+### Delete of an id never seen: SkippedUnknown
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[
+  { "type": "delete", "id": "{{unknownId}}", "timestamp": "2026-01-01T10:00:00Z" }
+]

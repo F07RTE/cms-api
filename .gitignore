@@ -6,3 +6,6 @@ obj/
 .DS_Store
 *.user
 TestResults/
+
+# Local secrets for the .http scenarios
+http-client.private.env.json

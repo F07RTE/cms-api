@@ -1,0 +1,39 @@
+# The version decides across Batches; the timestamp orders events within one Batch.
+@run = 1
+@id = order-{{run}}
+
+### One Batch, events listed out of timestamp order: sorted, so v1 then v2 both apply
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[
+  { "type": "publish", "id": "{{id}}", "version": 2, "timestamp": "2026-01-01T10:05:00Z", "payload": { "title": "v2" } },
+  { "type": "publish", "id": "{{id}}", "version": 1, "timestamp": "2026-01-01T10:00:00Z", "payload": { "title": "v1" } }
+]
+
+### Read it: version 2
+GET {{host}}/entities/{{id}}
+Authorization: Basic {{readerUsername}} {{readerPassword}}
+
+### Jump ahead to v5
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[
+  { "type": "publish", "id": "{{id}}", "version": 5, "timestamp": "2026-01-01T10:10:00Z", "payload": { "title": "v5" } }
+]
+
+### Late v3 with a newer timestamp: SkippedStale, the version wins over the clock
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[
+  { "type": "publish", "id": "{{id}}", "version": 3, "timestamp": "2026-01-01T12:00:00Z", "payload": { "title": "v3 arrived late" } }
+]
+
+### Read it: still version 5
+GET {{host}}/entities/{{id}}
+Authorization: Basic {{readerUsername}} {{readerPassword}}

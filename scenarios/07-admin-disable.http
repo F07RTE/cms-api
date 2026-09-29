@@ -1,0 +1,49 @@
+# Disabled is a local override: CMS Events never clear it, only an Admin does.
+@run = 1
+@id = disable-{{run}}
+
+### Publish v1
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[
+  { "type": "publish", "id": "{{id}}", "version": 1, "timestamp": "2026-01-01T10:00:00Z", "payload": { "title": "Controversial" } }
+]
+
+### A User can't disable: 403
+PATCH {{host}}/entities/{{id}}/disable
+Authorization: Basic {{readerUsername}} {{readerPassword}}
+
+### Admin disables: 200, disabledBy admin
+PATCH {{host}}/entities/{{id}}/disable
+Authorization: Basic {{adminUsername}} {{adminPassword}}
+
+### User: 404
+GET {{host}}/entities/{{id}}
+Authorization: Basic {{readerUsername}} {{readerPassword}}
+
+### CMS publishes v2: applies, but stays Disabled
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[
+  { "type": "publish", "id": "{{id}}", "version": 2, "timestamp": "2026-01-01T11:00:00Z", "payload": { "title": "Toned down" } }
+]
+
+### Admin: version 2, isDisabledByAdmin true
+GET {{host}}/entities/{{id}}
+Authorization: Basic {{adminUsername}} {{adminPassword}}
+
+### Admin enables: 200
+PATCH {{host}}/entities/{{id}}/enable
+Authorization: Basic {{adminUsername}} {{adminPassword}}
+
+### User: version 2 visible again
+GET {{host}}/entities/{{id}}
+Authorization: Basic {{readerUsername}} {{readerPassword}}
+
+### Disable an unknown id: 404
+PATCH {{host}}/entities/unknown-{{run}}/disable
+Authorization: Basic {{adminUsername}} {{adminPassword}}

@@ -1,0 +1,42 @@
+# unPublish with the same version applies when its timestamp is newer; a late retry is a Duplicate.
+@run = 1
+@id = unpublish-{{run}}
+
+### Publish v2
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[
+  { "type": "publish", "id": "{{id}}", "version": 2, "timestamp": "2026-01-01T10:00:00Z", "payload": { "title": "Draft" } }
+]
+
+### unPublish v2, newer timestamp: applies
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[
+  { "type": "unPublish", "id": "{{id}}", "version": 2, "timestamp": "2026-01-01T10:30:00Z", "payload": { "title": "Draft" } }
+]
+
+### User: 404, not Visible
+GET {{host}}/entities/{{id}}
+Authorization: Basic {{readerUsername}} {{readerPassword}}
+
+### Admin: isPublished false
+GET {{host}}/entities/{{id}}
+Authorization: Basic {{adminUsername}} {{adminPassword}}
+
+### Late retry of publish v2, older timestamp: SkippedDuplicate
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[
+  { "type": "publish", "id": "{{id}}", "version": 2, "timestamp": "2026-01-01T10:00:00Z", "payload": { "title": "Draft" } }
+]
+
+### Admin: still isPublished false
+GET {{host}}/entities/{{id}}
+Authorization: Basic {{adminUsername}} {{adminPassword}}

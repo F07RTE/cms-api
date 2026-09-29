@@ -1,0 +1,31 @@
+# Replaying a Batch is harmless; within one Batch the later timestamp wins for the same version.
+@run = 1
+@id = dup-{{run}}
+
+### Same id and version twice, different payloads: both apply in timestamp order, 10:01 wins
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[
+  { "type": "publish", "id": "{{id}}", "version": 1, "timestamp": "2026-01-01T10:01:00Z", "payload": { "title": "Second" } },
+  { "type": "publish", "id": "{{id}}", "version": 1, "timestamp": "2026-01-01T10:00:00Z", "payload": { "title": "First" } }
+]
+
+### Read it: title "Second"
+GET {{host}}/entities/{{id}}
+Authorization: Basic {{readerUsername}} {{readerPassword}}
+
+### The same Batch again: both SkippedDuplicate
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[
+  { "type": "publish", "id": "{{id}}", "version": 1, "timestamp": "2026-01-01T10:01:00Z", "payload": { "title": "Second" } },
+  { "type": "publish", "id": "{{id}}", "version": 1, "timestamp": "2026-01-01T10:00:00Z", "payload": { "title": "First" } }
+]
+
+### Read it: unchanged
+GET {{host}}/entities/{{id}}
+Authorization: Basic {{readerUsername}} {{readerPassword}}

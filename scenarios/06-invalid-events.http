@@ -1,0 +1,58 @@
+# Invalid CMS Events are Failed one by one; the rest of the Batch still applies.
+# Broken bodies and wrong callers are rejected before the Inbox.
+@run = 1
+@id = valid-{{run}}
+
+### Mixed Batch: 202, only the first event applies, the others are Failed
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[
+  { "type": "publish", "id": "{{id}}", "version": 1, "timestamp": "2026-01-01T10:00:00Z", "payload": { "title": "Valid" } },
+  { "type": "Publish", "id": "bad-type-{{run}}", "version": 1, "timestamp": "2026-01-01T10:00:00Z", "payload": {} },
+  { "type": "publish", "id": "no-offset-{{run}}", "version": 1, "timestamp": "2026-01-01T10:00:00", "payload": {} },
+  { "type": "publish", "id": "zero-version-{{run}}", "version": 0, "timestamp": "2026-01-01T10:00:00Z", "payload": {} },
+  { "type": "publish", "id": "array-payload-{{run}}", "version": 1, "timestamp": "2026-01-01T10:00:00Z", "payload": [] },
+  { "type": "publish", "id": "dup-key-{{run}}", "version": 1, "version": 2, "timestamp": "2026-01-01T10:00:00Z", "payload": {} },
+  { "type": "publish", "id": " padded-{{run}} ", "version": 1, "timestamp": "2026-01-01T10:00:00Z", "payload": {} },
+  "not an object"
+]
+
+### Read the valid one
+GET {{host}}/entities/{{id}}
+Authorization: Basic {{readerUsername}} {{readerPassword}}
+
+### Empty array: 400
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[]
+
+### Object instead of array: 400
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+{ "type": "publish", "id": "{{id}}", "version": 2, "timestamp": "2026-01-01T10:00:00Z", "payload": {} }
+
+### Malformed JSON: 400
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[ { "type": "publish",
+
+### No credentials: 401
+POST {{host}}/cms/events
+Content-Type: application/json
+
+[]
+
+### A User on the CMS webhook: 403
+POST {{host}}/cms/events
+Authorization: Basic {{readerUsername}} {{readerPassword}}
+Content-Type: application/json
+
+[]
