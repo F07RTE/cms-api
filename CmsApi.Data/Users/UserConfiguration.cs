@@ -14,7 +14,7 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         Id = new Guid("5b1f0c9e-2d4a-4e7b-8c3f-1a6d9e2b7c40"),
         Username = "admin",
         PasswordHash =
-            "$argon2id$v=19$m=19456,t=2,p=1$OLXIgDfhEDkEgUiWOhjZ+A$WlaQcUtsEyNRPgpTN0Zaf6DOtE8P+KFOGwR9CHU6smA",
+            "$argon2id$v=19$m=19456,t=2,p=1$Fv52v2hZpdZghTdBrt+4dg$7ecPyqGcRQUZKWrABnd8aECTIKVWlkjUBU3FQSZAdpY",
         Role = UserRole.Admin,
     };
 
@@ -23,7 +23,7 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         Id = new Guid("8e3a6d21-7c5b-4f90-a1e4-3d2c8b6f5a19"),
         Username = "reader",
         PasswordHash =
-            "$argon2id$v=19$m=19456,t=2,p=1$SKxVoHRqiIBsIR2YouAfdA$C5+Yz6MqMxWWNi7Vu7Ay6YUn+lMf3vSbD5TBkZwGkk0",
+            "$argon2id$v=19$m=19456,t=2,p=1$skZWs2Vzjq8tXNNLb9nqiA$rWK4wkmROwm4dyYDeYdm/CqARAXhmJcIfao5cBrOfao",
         Role = UserRole.User,
     };
 
