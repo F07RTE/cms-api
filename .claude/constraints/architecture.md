@@ -20,6 +20,14 @@
 - Event rules and batch ordering are pure functions in Core, with no I/O
 - Shared DI goes through `AddCmsCore()` / `AddCmsData(config)`, not per-host copies
 
+## Folder Layout
+
+- Folders group by purpose, not by kind. A folder says what its files are for (`Events/Validation`, `Events/Rules`, `Inbox`), never what they are (`Models`, `Enums`, `Interfaces`, `Services`)
+- The domain types of a concept sit at its root (`Events/CmsEvent`, `Events/EventOutcome`); sub-folders hold one purpose each
+- A Core interface lives in the folder named for its concept, and Data implements it in the folder of the same name (`Core/ContentEntities/IContentEntityStore` ↔ `Data/ContentEntities/EfContentEntityStore`)
+- Namespace = folder path
+- Exception: `Core/Exceptions` holds the shared exception hierarchy
+
 ## Data Access
 
 - `ReadDbContext` (NoTracking) for GETs and the auth lookup. `WriteDbContext` for ingestion, PATCH and everything the worker does

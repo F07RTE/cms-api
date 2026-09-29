@@ -1,4 +1,8 @@
+using CmsApi.Core.ContentEntities;
+using CmsApi.Core.EventLog;
 using CmsApi.Core.Inbox;
+using CmsApi.Data.ContentEntities;
+using CmsApi.Data.EventLog;
 using CmsApi.Data.Inbox;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -52,6 +56,8 @@ public static class DataServiceCollectionExtensions
                 options.UseNpgsql(ConnectionStrings(provider).Writer).UseSnakeCaseNamingConvention()
         );
         services.AddScoped<IInbox, EfInbox>();
+        services.AddScoped<IEventLog, EfEventLog>();
+        services.AddScoped<IContentEntityStore, EfContentEntityStore>();
         return services;
     }
 

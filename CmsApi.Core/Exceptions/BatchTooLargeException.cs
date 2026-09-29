@@ -1,6 +1,6 @@
 using CmsApi.Core.Batches;
 
-namespace CmsApi.Core.Errors;
+namespace CmsApi.Core.Exceptions;
 
 public sealed class BatchTooLargeException(long bodyBytes)
     : BatchRejectedException(TooLargeMessage, SplitBatchAction, bodyBytes)

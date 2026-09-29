@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace CmsApi.Core.Batches;
 
 /// <summary>Whole-body rules, checked before a Batch reaches the Inbox.</summary>
@@ -9,4 +11,6 @@ public static class BatchLimits
 
     /// <summary>The System.Text.Json default, stated so it can't drift.</summary>
     public const int MaxDepth = 64;
+
+    public static readonly JsonDocumentOptions ParseOptions = new() { MaxDepth = MaxDepth };
 }

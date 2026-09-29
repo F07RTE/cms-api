@@ -4,7 +4,10 @@ using System.Text;
 using System.Text.Json;
 using CmsApi.Auth;
 using CmsApi.Core.Auth;
+using CmsApi.Core.Inbox;
 using CmsApi.Data;
+using CmsApi.Data.ContentEntities;
+using CmsApi.Data.EventLog;
 using CmsApi.Data.Inbox;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -88,6 +91,52 @@ public static class Orchestrator
         await using var scope = CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<WriteDbContext>();
         return await context.InboxBatches.ToListAsync();
+    }
+
+    /// <summary>Runs the worker's processing until the Inbox has nothing due. No waiting.</summary>
+    public static async Task DrainInboxAsync()
+    {
+        bool processed;
+        do
+        {
+            await using var scope = CreateScope();
+            var processor = scope.ServiceProvider.GetRequiredService<InboxProcessor>();
+            processed = await processor.ProcessNextBatchAsync(CancellationToken.None);
+        } while (processed);
+    }
+
+    /// <summary>Puts every Batch back to Pending, as a retry or crash recovery would.</summary>
+    public static async Task RequeueBatchesAsync()
+    {
+        await using var scope = CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<WriteDbContext>();
+        await context.InboxBatches.ExecuteUpdateAsync(setters =>
+            setters.SetProperty(batch => batch.Status, InboxStatus.Pending)
+        );
+    }
+
+    /// <summary>Stores a Content Entity directly, as if earlier Batches had created it.</summary>
+    public static async Task<ContentEntity> SeedEntityAsync(ContentEntity contentEntity)
+    {
+        await using var scope = CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<WriteDbContext>();
+        context.ContentEntities.Add(contentEntity);
+        await context.SaveChangesAsync();
+        return contentEntity;
+    }
+
+    public static async Task<List<ContentEntity>> ReadContentEntitiesAsync()
+    {
+        await using var scope = CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<WriteDbContext>();
+        return await context.ContentEntities.OrderBy(entity => entity.Id).ToListAsync();
+    }
+
+    public static async Task<List<EventLogEntry>> ReadEventLogAsync()
+    {
+        await using var scope = CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<WriteDbContext>();
+        return await context.EventLog.OrderBy(entry => entry.Id).ToListAsync();
     }
 
     public static async Task MigrateDatabaseAsync()

@@ -1,4 +1,4 @@
-namespace CmsApi.Core.Errors;
+namespace CmsApi.Core.Exceptions;
 
 /// <summary>A Batch that broke a whole-body rule and never reached the Inbox.</summary>
 public abstract class BatchRejectedException(string message, string action, long bodyBytes)

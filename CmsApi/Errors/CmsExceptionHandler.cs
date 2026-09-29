@@ -1,4 +1,4 @@
-using CmsApi.Core.Errors;
+using CmsApi.Core.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 

@@ -1,6 +1,6 @@
 using System.Text;
 using System.Text.Json;
-using CmsApi.Core.Errors;
+using CmsApi.Core.Exceptions;
 
 namespace CmsApi.Core.Batches;
 
@@ -13,11 +13,6 @@ public static class BatchBodyValidator
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true
     );
-
-    private static readonly JsonDocumentOptions ParseOptions = new()
-    {
-        MaxDepth = BatchLimits.MaxDepth,
-    };
 
     /// <exception cref="InvalidBatchException">The body breaks a whole-body rule.</exception>
     public static ValidBatchBody Validate(ReadOnlyMemory<byte> utf8Body)
@@ -56,7 +51,7 @@ public static class BatchBodyValidator
     {
         try
         {
-            return JsonDocument.Parse(utf8Body, ParseOptions);
+            return JsonDocument.Parse(utf8Body, BatchLimits.ParseOptions);
         }
         catch (JsonException)
         {

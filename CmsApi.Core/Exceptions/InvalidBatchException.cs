@@ -1,6 +1,6 @@
 using CmsApi.Core.Batches;
 
-namespace CmsApi.Core.Errors;
+namespace CmsApi.Core.Exceptions;
 
 public sealed class InvalidBatchException(string message, long bodyBytes)
     : BatchRejectedException(message, FixBodyAction, bodyBytes)

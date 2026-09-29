@@ -1,10 +1,6 @@
-using CmsApi.Core;
-using CmsApi.Data;
+using CmsApi.Worker;
 
-var builder = Host.CreateApplicationBuilder(args);
-
-builder.Services.AddCmsCore();
-builder.Services.AddCmsWriteData(builder.Configuration);
+var builder = WorkerHost.Configure(Host.CreateApplicationBuilder(args));
 
 var host = builder.Build();
 host.Run();

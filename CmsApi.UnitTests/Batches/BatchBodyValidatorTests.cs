@@ -1,6 +1,6 @@
 using System.Text;
 using CmsApi.Core.Batches;
-using CmsApi.Core.Errors;
+using CmsApi.Core.Exceptions;
 using FluentAssertions;
 
 namespace CmsApi.UnitTests.Batches;

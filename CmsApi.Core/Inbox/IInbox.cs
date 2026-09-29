@@ -9,4 +9,13 @@ public interface IInbox
         int eventCount,
         CancellationToken cancellationToken
     );
+
+    /// <summary>
+    /// Moves the oldest due <see cref="InboxStatus.Pending"/> Batch to
+    /// <see cref="InboxStatus.Processing"/> and counts the attempt. Null when none is due.
+    /// </summary>
+    Task<ClaimedBatch?> ClaimNextAsync(CancellationToken cancellationToken);
+
+    /// <summary>Marks a claimed Batch <see cref="InboxStatus.Done"/>.</summary>
+    Task CompleteAsync(long batchId, CancellationToken cancellationToken);
 }

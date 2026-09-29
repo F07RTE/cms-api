@@ -1,4 +1,4 @@
-using CmsApi.Core.Errors;
+using CmsApi.Core.Exceptions;
 
 namespace CmsApi.Http;
 
