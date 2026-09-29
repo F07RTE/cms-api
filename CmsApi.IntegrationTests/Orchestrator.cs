@@ -135,6 +135,16 @@ public static class Orchestrator
         return await client.GetAsync($"{ContentEntitiesRoute}{query}");
     }
 
+    public static Task<HttpResponseMessage> DisableContentEntityAsync(
+        string id,
+        BasicCredentials credentials
+    ) => PatchContentEntityAsync($"{ContentEntitiesRoute}/{id}/disable", credentials);
+
+    public static Task<HttpResponseMessage> EnableContentEntityAsync(
+        string id,
+        BasicCredentials credentials
+    ) => PatchContentEntityAsync($"{ContentEntitiesRoute}/{id}/enable", credentials);
+
     /// <summary>A <c>publish</c> or <c>unPublish</c> CMS Event, as the CMS Client sends it.</summary>
     public static object CmsEvent(
         string type,
@@ -257,9 +267,7 @@ public static class Orchestrator
         DateTimeOffset disabledAt
     )
     {
-        contentEntity.IsDisabledByAdmin = true;
-        contentEntity.DisabledAt = disabledAt;
-        contentEntity.DisabledBy = adminUsername;
+        contentEntity.Disable(adminUsername, disabledAt);
         return contentEntity;
     }
 
@@ -326,6 +334,15 @@ public static class Orchestrator
     }
 
     public static ValueTask DisposeAsync() => Factory.DisposeAsync();
+
+    private static async Task<HttpResponseMessage> PatchContentEntityAsync(
+        string route,
+        BasicCredentials credentials
+    )
+    {
+        using var client = WithBasicAuth(CreateClient(), credentials);
+        return await client.PatchAsync(route, content: null);
+    }
 
     private static async Task DrainInboxAsync(
         Func<IServiceProvider, InboxProcessor> createProcessor

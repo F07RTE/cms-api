@@ -20,7 +20,7 @@ internal sealed class EfContentEntityStore(WriteDbContext context, TimeProvider 
         await using var transaction = await context.Database.BeginTransactionAsync(
             cancellationToken
         );
-        var row = await LockAsync(contentEntityId, cancellationToken);
+        var row = await context.LockContentEntityAsync(contentEntityId, cancellationToken);
         var storedTombstone = await FindTombstoneAsync(contentEntityId, cancellationToken);
         var decision = decide(row is null ? null : ToState(row), storedTombstone);
         var processedAt = timeProvider.GetUtcNow();
@@ -33,15 +33,6 @@ internal sealed class EfContentEntityStore(WriteDbContext context, TimeProvider 
         await context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         context.ChangeTracker.Clear();
-    }
-
-    // Serialises the worker against an Admin PATCH on the same row.
-    private async Task<ContentEntity?> LockAsync(string id, CancellationToken cancellationToken)
-    {
-        var rows = await context
-            .ContentEntities.FromSql($"SELECT * FROM content_entities WHERE id = {id} FOR UPDATE")
-            .ToListAsync(cancellationToken);
-        return rows.SingleOrDefault();
     }
 
     private async Task<TombstoneState?> FindTombstoneAsync(

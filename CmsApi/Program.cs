@@ -8,7 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddCmsCore();
 builder.Services.AddCmsData(builder.Configuration);
-builder.Services.AddContentEntityReaders();
+builder.Services.AddContentEntityProjections();
 builder.Services.AddCmsAuth(builder.Configuration);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<CmsExceptionHandler>();

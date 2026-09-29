@@ -88,6 +88,19 @@ public static class DataServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Registers the <see cref="IContentEntityOverrides"/>, answering with <paramref name="project"/>.
+    /// </summary>
+    public static IServiceCollection AddContentEntityOverrides(
+        this IServiceCollection services,
+        Func<ContentEntity, IProjectedContentEntity> project
+    ) =>
+        services.AddScoped<IContentEntityOverrides>(provider => new EfContentEntityOverrides(
+            provider.GetRequiredService<WriteDbContext>(),
+            provider.GetRequiredService<TimeProvider>(),
+            project
+        ));
+
     private static OptionsBuilder<ConnectionStringOptions> ValidateRequired(
         this OptionsBuilder<ConnectionStringOptions> builder,
         Func<ConnectionStringOptions, string> connectionString,

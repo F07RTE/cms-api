@@ -24,4 +24,35 @@ public sealed class ContentEntity : IContentEntityFlags
     public DateTimeOffset? DisabledAt { get; set; }
 
     public string? DisabledBy { get; set; }
+
+    /// <summary>
+    /// Marks it Disabled by <paramref name="adminUsername"/>. False, changing nothing, when it
+    /// already was: the earlier <see cref="DisabledAt"/> and <see cref="DisabledBy"/> stay.
+    /// </summary>
+    public bool Disable(string adminUsername, DateTimeOffset disabledAt)
+    {
+        if (IsDisabledByAdmin)
+        {
+            return false;
+        }
+
+        IsDisabledByAdmin = true;
+        DisabledAt = disabledAt;
+        DisabledBy = adminUsername;
+        return true;
+    }
+
+    /// <summary>Clears the Disabled override. False, changing nothing, when it wasn't Disabled.</summary>
+    public bool Enable()
+    {
+        if (!IsDisabledByAdmin)
+        {
+            return false;
+        }
+
+        IsDisabledByAdmin = false;
+        DisabledAt = null;
+        DisabledBy = null;
+        return true;
+    }
 }

@@ -18,10 +18,6 @@ public sealed class ContentEntitiesController(
     [FromKeyedServices(UserRole.Admin)] IContentEntityReader adminReader
 ) : ControllerBase
 {
-    private const string NotFoundDetail = "No Content Entity with this id.";
-    private const string NotFoundAction =
-        "Check the id. Deleted Content Entities are gone for good.";
-
     [HttpGet]
     public async Task<IActionResult> ListAsync(
         [FromQuery] ContentEntityPageQueryString query,
@@ -39,9 +35,7 @@ public sealed class ContentEntitiesController(
     {
         var contentEntity = await ReaderForUser().FindAsync(id, cancellationToken);
         return contentEntity is null
-            ? NotFound(
-                Problems.Create(StatusCodes.Status404NotFound, NotFoundDetail, NotFoundAction)
-            )
+            ? NotFound(ContentEntityProblems.NotFound())
             : Ok(contentEntity);
     }
 
