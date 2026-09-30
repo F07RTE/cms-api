@@ -17,34 +17,19 @@ The domain vocabulary is in [`CONTEXT.md`](CONTEXT.md). The decisions that are h
 
 The commands are the same on macOS, Linux and Windows (PowerShell or cmd). They run through the [`run-script`](https://github.com/xt0rted/dotnet-run-script) local tool; the scripts live in `global.json`.
 
-### Setup
+### Setup and run
 
 ```sh
-dotnet tool restore        # once after cloning: run-script, dotnet-ef, CSharpier, Husky
-dotnet r services:up       # Postgres 17 and RabbitMQ in Docker, waits until they're healthy
-dotnet r migrations:up     # creates the schema and seeds the dev users
+dotnet tool restore   # once after cloning: run-script, dotnet-ef, CSharpier, Husky
+dotnet r dev          # starts Postgres 17 and RabbitMQ, applies migrations, runs the API
 ```
 
-Migrations are never applied at startup; run `migrations:up` after pulling new ones.
+The API runs on http://localhost:5290. It's one process: the API also consumes the Batches it queues, and declares its queues on start.
 
-The first `services:up` runs `infra/postgres/init.sql`. It creates two databases (`cms_api` for dev, `cms_api_test` for tests) and two roles:
-
-- `cms_writer`, which owns the tables
-- `cms_reader`, which can only `SELECT`
-
-### Run
-
-One process: the API also consumes the Batches it queues. The RabbitMQ URI carries credentials, so it comes from user-secrets (once per clone):
-
-```sh
-dotnet user-secrets set ConnectionStrings:RabbitMq amqp://cms:cms_local@localhost:5672 --project src/CmsApi
-```
-
-Then one command starts Postgres and RabbitMQ, applies migrations and runs the API on http://localhost:5290:
-
-```sh
-dotnet r dev
-```
+- Migrations are never applied at startup. `dev` runs `migrations:up` first; run it yourself after pulling new ones if you start the API another way.
+- The first start runs `infra/postgres/init.sql`. It creates two databases (`cms_api` for dev, `cms_api_test` for tests) and two roles: `cms_writer`, which owns the tables, and `cms_reader`, which can only `SELECT`.
+- RabbitMQ's management UI is at http://localhost:15672 (`cms` / `cms_local`).
+- `dotnet r services:down` stops Postgres and RabbitMQ. The data volumes survive it.
 
 ### Dev credentials
 
@@ -84,13 +69,12 @@ Both are served anonymously, and only when `ApiDocs:Enabled` is true. That is se
 ### Tests and lint
 
 ```sh
-dotnet r test         # unit + integration; needs services:up
+dotnet r test         # unit + integration; needs services:up (or a running dev)
 dotnet r lint:run     # format with CSharpier (CI runs lint:check)
 ```
 
-- Integration tests use the `cms_api_test` database. They migrate it once, and Respawn clears the data before each test.
+- Integration tests use the `cms_api_test` database and the same RabbitMQ. They migrate the database once; before each test, Respawn clears the data and both queues are purged.
 - The consumer is off in tests. They process Batches through `DrainInboxAsync()`, which drains the real queue, so no test waits on a timer.
-- `dotnet r services:down` stops Postgres and RabbitMQ. The data volumes survive it.
 
 ## Assumptions
 
@@ -206,7 +190,8 @@ So the lock only serialises them; neither ever overwrites the other.
 
 ## Out of scope
 
-- **Inbox cleanup.** `Done` Batches accumulate. A scheduled delete, or partitioning by `received_at`, would handle it.
+- **Inbox cleanup.** `Done` Batches accumulate, as do `Pending` rows whose publish failed (the CMS retried them as new Batches). A scheduled delete, or partitioning by `received_at`, would handle it.
+- **Replaying Dead Batches.** A person inspects them in the Inbox; there's no tool to set one back to `Pending` and publish it again.
 - **Event Log retention and querying.** The table grows forever, and no endpoint reads it.
 - **User management.** No endpoints to create, change or disable Users. Admins disable Content Entities, never Users.
 - **Status/health endpoint.** There is no way to ask for a Batch's progress. The 202 returns a `batchId` for correlating with logs and the database.
