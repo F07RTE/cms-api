@@ -83,6 +83,8 @@ dotnet r lint:run     # format with CSharpier (CI runs lint:check)
 - Timestamps order events **within** one Batch. Across Batches, the version decides; an equal version applies only if its timestamp is newer than the stored `last_event_at`.
 - The CMS doesn't need a per-event result in the webhook response. A 202 means "stored, will be processed".
 - Payloads are JSON objects with a schema we don't know and don't need to know.
+- "Sanitized" means validated and never interpreted: each event's fields are checked and control characters rejected, and payloads are stored as sent. We never render them, so escaping them is the renderer's job (see [Payloads are stored verbatim](#payloads-are-stored-verbatim)).
+- An `unPublish` can carry a version we never saw published (the CMS edited v1 into v2, then unpublished v2). A higher version applies, so v2's fields are stored, not Visible.
 - There is one CMS, so its credential lives in configuration rather than a table.
 - Users are created by a person with database access. There is no user management API.
 - TLS ends at a reverse proxy in front of the API.

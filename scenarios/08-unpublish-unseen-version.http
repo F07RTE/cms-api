@@ -1,0 +1,30 @@
+# The CMS edits v1 into v2 without publishing, then unpublishes v2: we never saw v2 published,
+# but the unPublish carries its fields, so v2 is stored, not Visible.
+@run = 1
+@id = unseen-{{run}}
+
+### Publish v1
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[
+  { "type": "publish", "id": "{{id}}", "version": 1, "timestamp": "2026-01-01T10:00:00Z", "payload": { "title": "v1" } }
+]
+
+### unPublish v2, a version never published: applies with the v2 fields
+POST {{host}}/cms/events
+Authorization: Basic {{cmsUsername}} {{cmsPassword}}
+Content-Type: application/json
+
+[
+  { "type": "unPublish", "id": "{{id}}", "version": 2, "timestamp": "2026-01-01T11:00:00Z", "payload": { "title": "v2 draft" } }
+]
+
+### User: 404, not Visible
+GET {{host}}/entities/{{id}}
+Authorization: Basic {{readerUsername}} {{readerPassword}}
+
+### Admin: version 2, title "v2 draft", isPublished false
+GET {{host}}/entities/{{id}}
+Authorization: Basic {{adminUsername}} {{adminPassword}}

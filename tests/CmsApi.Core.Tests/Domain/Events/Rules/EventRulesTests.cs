@@ -55,6 +55,19 @@ public sealed class EventRulesTests
         decision.Should().Be(Applied(new ContentEntityState(2, NewPayload, false, Later)));
     }
 
+    // The CMS edited v2 into v3 without publishing it, then unpublished v3.
+    [Test]
+    public void UnPublish_WithHigherVersion()
+    {
+        var decision = EventRules.Decide(
+            StoredV2,
+            tombstone: null,
+            Event(CmsEventType.UnPublish, 3, Earlier)
+        );
+
+        decision.Should().Be(Applied(new ContentEntityState(3, NewPayload, false, Earlier)));
+    }
+
     [TestCase(-1)]
     [TestCase(0)]
     public void Publish_WithEqualVersionAndNoNewerTimestamp(int secondsFromStored)

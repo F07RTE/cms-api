@@ -31,6 +31,7 @@
 | `05-duplicates.http`     | replayed Batch; same version twice in one Batch                   |
 | `06-invalid-events.http` | Failed events don't fail the Batch; 400 / 401 / 403 on the body   |
 | `07-admin-disable.http`  | Disabled survives CMS Events; only an Admin clears it             |
+| `08-unpublish-unseen-version.http` | unPublish of a version never published stores its fields |
 
 ## Seeing the Event Outcomes
 
