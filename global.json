@@ -6,8 +6,8 @@
     "scripts": {
         "services:up": "docker compose -f infra/compose.yaml up -d --wait",
         "services:down": "docker compose -f infra/compose.yaml down",
-        "migrations:add": "dotnet ef migrations add --project src/CmsApi.Data --startup-project src/CmsApi --context WriteDbContext --output-dir Migrations",
-        "migrations:up": "dotnet ef database update --project src/CmsApi.Data --startup-project src/CmsApi --context WriteDbContext -- --environment Development",
+        "migrations:add": "dotnet restore && dotnet ef migrations add --project src/CmsApi.Data --startup-project src/CmsApi --context WriteDbContext --output-dir Migrations",
+        "migrations:up": "dotnet restore && dotnet ef database update --project src/CmsApi.Data --startup-project src/CmsApi --context WriteDbContext -- --environment Development",
         "dev": "dotnet r services:up migrations:up && dotnet run --project src/CmsApi",
         "test": "dotnet test",
         "lint:run": "dotnet csharpier format .",
