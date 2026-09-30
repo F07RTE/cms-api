@@ -1,0 +1,8 @@
+{
+  "users": [{ "name": "cms", "password": "cms_local", "tags": ["administrator"] }],
+  "vhosts": [{ "name": "/" }, { "name": "cms_api_test" }],
+  "permissions": [
+    { "user": "cms", "vhost": "/", "configure": ".*", "write": ".*", "read": ".*" },
+    { "user": "cms", "vhost": "cms_api_test", "configure": ".*", "write": ".*", "read": ".*" }
+  ]
+}

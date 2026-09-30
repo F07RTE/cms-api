@@ -20,10 +20,6 @@ services:
 
   rabbitmq:
     image: rabbitmq:4-management-alpine
-    environment:
-      # The default guest user only accepts loopback connections, which the port mapping isn't.
-      RABBITMQ_DEFAULT_USER: cms
-      RABBITMQ_DEFAULT_PASS: cms_local
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -33,6 +29,10 @@ services:
       timeout: 5s
       retries: 30
     volumes:
+      # Creates the cms user (guest only accepts loopback connections, which the port mapping
+      # isn't) and the cms_api_test vhost, so a running dev consumer never takes test Batches.
+      - ./rabbitmq/definitions.conf:/etc/rabbitmq/conf.d/20-definitions.conf:ro
+      - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
       - rabbitmqdata:/var/lib/rabbitmq
 
 volumes:

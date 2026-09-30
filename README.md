@@ -31,6 +31,7 @@ The API runs on http://localhost:5290. It's one process: the API also consumes t
 - Migrations are never applied at startup. `dev` runs `migrations:up` first; run it yourself after pulling new ones if you start the API another way.
 - On an empty database, `migrations:up` logs a `fail` for `SELECT ... FROM "__EFMigrationsHistory"`. It's harmless: EF reads its history table before creating it, then creates it and applies every migration.
 - The first start runs `infra/postgres/init.sql`. It creates two databases (`cms_api` for dev, `cms_api_test` for tests) and two roles: `cms_writer`, which owns the tables, and `cms_reader`, which can only `SELECT`.
+- RabbitMQ loads `infra/rabbitmq/definitions.json` on every start: the `cms` user, the default vhost `/` for dev and `cms_api_test` for tests.
 - RabbitMQ's management UI is at http://localhost:15672 (`cms` / `cms_local`).
 - `dotnet r services:down` stops Postgres and RabbitMQ. The data volumes survive it.
 
@@ -110,7 +111,7 @@ dotnet r test         # unit + integration; needs services:up (or a running dev)
 dotnet r lint:run     # format with CSharpier (CI runs lint:check)
 ```
 
-- Integration tests use the `cms_api_test` database and the same RabbitMQ. They migrate the database once; before each test, Respawn clears the data and both queues are purged.
+- Integration tests use the `cms_api_test` database and the `cms_api_test` vhost, so they can run while `dev` is running. They migrate the database once; before each test, Respawn clears the data and both queues are purged.
 - The consumer is off in tests. They process Batches through `DrainInboxAsync()`, which drains the real queue, so no test waits on a timer.
 
 ## Assumptions

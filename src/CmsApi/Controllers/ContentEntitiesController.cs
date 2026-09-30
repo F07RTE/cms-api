@@ -57,7 +57,7 @@ public sealed class ContentEntitiesController(IContentEntityReadRepository conte
         var contentEntity = await contentEntities.FindAsync(id, role, cancellationToken);
         if (contentEntity is null)
         {
-            return NotFound(ContentEntityProblems.NotFound());
+            return this.ContentEntityNotFound();
         }
 
         return role == UserRole.Admin

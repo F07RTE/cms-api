@@ -21,6 +21,7 @@ public static class ResponseAssertions
         var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("status").GetInt32().Should().Be((int)status);
         problem.GetProperty("action").GetString().Should().NotBeNullOrWhiteSpace();
+        problem.PropertyNames().Should().Contain(["type", "title", "traceId"]);
     }
 
     public static async Task ShouldBeChallengedAsync(this HttpResponseMessage response)
