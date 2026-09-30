@@ -138,7 +138,6 @@ public static class CmsEventValidator
             && version >= CmsEventLimits.MinVersion;
     }
 
-    // A missing payload arrives as default(JsonElement), whose kind is Undefined.
     private static string? PayloadBrokenRule(JsonElement payload)
     {
         if (payload.ValueKind != JsonValueKind.Object)

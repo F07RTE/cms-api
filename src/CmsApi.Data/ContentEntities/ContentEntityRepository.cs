@@ -60,8 +60,6 @@ internal sealed class ContentEntityRepository(WriteDbContext context, TimeProvid
     public Task<StoredContentEntity?> EnableAsync(string id, CancellationToken cancellationToken) =>
         OverrideAsync(id, row => row.Enable(), cancellationToken);
 
-    // Writes the admin columns only. Already in the target state: change returns false and nothing
-    // is written. The answer is the locked row, so it comes from the writer.
     private async Task<StoredContentEntity?> OverrideAsync(
         string id,
         Func<ContentEntity, bool> change,

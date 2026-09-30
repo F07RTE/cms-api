@@ -3,7 +3,6 @@ using RabbitMQ.Client;
 
 namespace CmsApi.Messaging;
 
-// One connection per process, opened on first use; channels are opened per use from it.
 public sealed class BrokerConnection(IOptions<MessagingOptions> options) : IAsyncDisposable
 {
     private const string ClientName = "cms-api";

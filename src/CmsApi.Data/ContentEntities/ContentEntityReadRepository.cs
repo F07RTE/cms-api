@@ -8,7 +8,6 @@ namespace CmsApi.Data.ContentEntities;
 internal sealed class ContentEntityReadRepository(ReadDbContext reader)
     : IContentEntityReadRepository
 {
-    // Before every stored Content Entity, so the first page is the page after it.
     private static readonly ContentEntityCursor Start = new(DateTimeOffset.MaxValue, string.Empty);
 
     public Task<StoredContentEntity?> FindAsync(

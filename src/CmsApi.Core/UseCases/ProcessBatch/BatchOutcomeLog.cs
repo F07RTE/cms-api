@@ -5,13 +5,11 @@ using Microsoft.Extensions.Logging;
 
 namespace CmsApi.Core.UseCases.ProcessBatch;
 
-// Never logs a payload or a raw event.
 public sealed class BatchOutcomeLog(TimeProvider timeProvider, ILogger<BatchOutcomeLog> logger)
 {
     private const string FailedTemplate =
         "CMS Event for {ContentEntityId} in Batch {BatchId} is {Outcome}: {Reason}";
 
-    // A delete has no version, so {Version} is empty for it.
     private const string DecidedTemplate =
         "CMS Event {EventType} version {Version} for {ContentEntityId} in Batch {BatchId} is {Outcome}: {Reason}";
 

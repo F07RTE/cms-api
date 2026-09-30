@@ -46,7 +46,6 @@ public sealed partial class CmsExceptionHandler(
             ? Problems.Create(status, expected.Message, expected.Action)
             : Problems.Create(status, UnexpectedDetail, UnexpectedAction);
 
-    // Size and reason only: the body may hold anything and is never logged.
     private void Log(Exception exception, int status)
     {
         if (exception is BatchRejectedException rejected)

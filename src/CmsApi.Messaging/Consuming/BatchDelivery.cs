@@ -15,7 +15,6 @@ public sealed record BatchDelivery(
     public const string DeathQueue = "queue";
     public const string DeathCount = "count";
 
-    // Each rejection from the main queue is one failed attempt.
     public long FailedAttempts =>
         Properties.Headers is { } headers
         && headers.TryGetValue(DeathHeader, out var value)

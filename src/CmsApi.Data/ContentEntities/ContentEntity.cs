@@ -10,7 +10,6 @@ public sealed class ContentEntity
 
     public bool IsPublished { get; set; }
 
-    // CMS time of the last applied CMS Event.
     public DateTimeOffset LastEventAt { get; set; }
 
     public bool IsDisabledByAdmin { get; set; }

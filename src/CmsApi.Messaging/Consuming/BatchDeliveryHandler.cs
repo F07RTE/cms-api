@@ -47,7 +47,6 @@ public sealed class BatchDeliveryHandler(
         }
     }
 
-    // A scope per Batch, so each Batch gets a fresh DbContext.
     private async Task<ConsumeResult> ConsumeAsync(
         BatchAttempt attempt,
         CancellationToken cancellationToken

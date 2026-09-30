@@ -5,7 +5,6 @@ namespace CmsApi.Http;
 
 public sealed class RawJsonConverter : JsonConverter<string>
 {
-    // Response-only: request bodies are never bound to a raw-JSON string.
     public override string Read(
         ref Utf8JsonReader reader,
         Type typeToConvert,

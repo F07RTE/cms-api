@@ -7,7 +7,6 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace CmsApi.Auth.AuthenticateUser;
 
-// Successful checks are cached, so Argon2id runs at most once per header per CacheDuration (ADR 0003).
 public sealed class UserAuthenticator(
     IUserRepository users,
     IPasswordHasher<StoredUser> passwordHasher,

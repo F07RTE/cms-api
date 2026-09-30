@@ -8,7 +8,6 @@ public static class BatchLimits
     public const int MinEvents = 1;
     public const int MaxEvents = 1000;
 
-    // The System.Text.Json default, stated so it can't drift.
     public const int MaxDepth = 64;
 
     public static readonly JsonDocumentOptions ParseOptions = new() { MaxDepth = MaxDepth };

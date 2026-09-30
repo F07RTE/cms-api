@@ -4,10 +4,8 @@ using Microsoft.OpenApi;
 
 namespace CmsApi.ApiDocs;
 
-// Declared for the whole document, so the UI asks for credentials once.
 public sealed class BasicSecuritySchemeTransformer : IOpenApiDocumentTransformer
 {
-    // The HTTP auth scheme name as OpenAPI spells it (RFC 7617), lower case.
     private const string HttpBasicScheme = "basic";
 
     private const string Description =

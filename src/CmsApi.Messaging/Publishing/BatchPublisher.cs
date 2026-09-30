@@ -4,7 +4,6 @@ using RabbitMQ.Client;
 
 namespace CmsApi.Messaging.Publishing;
 
-// A nack, an unroutable message or a broker outage throws, and the request answers 500.
 public sealed class BatchPublisher(BrokerConnection broker) : IBatchPublisher
 {
     private static readonly CreateChannelOptions ConfirmedChannel = new(

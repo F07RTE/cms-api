@@ -86,7 +86,6 @@ public sealed class GetTests : IntegrationTest
         await ShouldBeNotFoundAsync(response);
     }
 
-    // Each malformed header shape is covered by the BasicCredentials unit tests.
     [TestCase(null)]
     [TestCase("Basic not-base64!")]
     public async Task AnonymousUser_WithMissingOrMalformedHeader(string? authorization)
@@ -216,7 +215,6 @@ public sealed class GetTests : IntegrationTest
     private const string ContentEntityId = "article-1";
     private const string OutdatedPassword = "outdated-password";
 
-    // Argon2id with the settings ADR 0003 fixes: m=19 MiB, t=2, p=1.
     private const string CurrentHashSettings = "$argon2id$v=19$m=19456,t=2,p=1$";
     private const long Version = 3;
 
@@ -238,7 +236,6 @@ public sealed class GetTests : IntegrationTest
             .BeTrue();
     }
 
-    // Sends the header as given: the malformed ones can't be built from BasicCredentials.
     private static async Task<HttpResponseMessage> GetWithAuthorizationAsync(string? authorization)
     {
         using var client = Orchestrator.CreateClient();

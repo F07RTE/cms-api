@@ -76,7 +76,6 @@ public static partial class Orchestrator
 
     public static ValueTask DisposeAsync() => Factory.DisposeAsync();
 
-    // Each helper gets a fresh scope, so its context never sees another's tracked rows.
     private static async Task<T> WithWriterAsync<T>(Func<WriteDbContext, Task<T>> action)
     {
         await using var scope = CreateScope();

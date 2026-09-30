@@ -5,7 +5,6 @@ public sealed record ContentEntityPage(
     ContentEntityCursor? Next
 )
 {
-    // The lookahead row (limit + 1) only tells that another page exists.
     public static ContentEntityPage FromRowsWithLookahead(
         IReadOnlyList<StoredContentEntity> rows,
         int limit

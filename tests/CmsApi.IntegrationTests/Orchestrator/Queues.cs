@@ -44,7 +44,6 @@ public static partial class Orchestrator
         await channel.BasicPublishAsync(BatchQueues.DefaultExchange, BatchQueues.Main, body);
     }
 
-    // Acks what it reads, so the messages leave the queue.
     public static async Task<List<long>> TakeQueuedBatchIdsAsync(string queue = BatchQueues.Main)
     {
         await using var channel = await CreateChannelAsync(Factory.Services);

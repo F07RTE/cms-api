@@ -5,7 +5,6 @@ using CmsApi.Core.Exceptions;
 
 namespace CmsApi.Core.UseCases.ReceiveBatch;
 
-// Whole-body rules only: each CMS Event is validated later, by the consumer.
 public static class BatchBodyValidator
 {
     // Strict: an invalid byte is rejected instead of silently becoming U+FFFD in the Inbox.

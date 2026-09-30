@@ -329,7 +329,6 @@ public sealed class ConsumeBatchTests : IntegrationTest
             throw new InvalidOperationException(Failure);
     }
 
-    // Finds the Batch, then loses the database before it can mark it Dead.
     private sealed class InboxFailingToMarkDead : IInboxRepository
     {
         private const string Failure = "database unreachable";

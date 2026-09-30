@@ -39,7 +39,6 @@ public static partial class Orchestrator
         await DrainInboxAsync(factory.Services);
     }
 
-    // Runs the consumer's handler on every message BasicGet finds, as the consumer would.
     private static async Task DrainInboxAsync(IServiceProvider services)
     {
         var handler = services.GetRequiredService<BatchDeliveryHandler>();

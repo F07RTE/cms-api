@@ -9,7 +9,6 @@ namespace CmsApi.Messaging.Consuming;
 public sealed class BatchQueueConsumer(BrokerConnection broker, BatchDeliveryHandler handler)
     : BackgroundService
 {
-    // One Batch at a time per replica: scale by adding replicas.
     private const ushort Prefetch = 1;
 
     private const uint AnyPrefetchSize = 0;
@@ -36,7 +35,6 @@ public sealed class BatchQueueConsumer(BrokerConnection broker, BatchDeliveryHan
         await WaitForShutdownAsync(stoppingToken);
     }
 
-    // Closing the channel on shutdown returns any unacked message to the queue.
     private static async Task WaitForShutdownAsync(CancellationToken stoppingToken)
     {
         try

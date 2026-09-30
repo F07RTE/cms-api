@@ -96,7 +96,6 @@ public sealed class GetTests : IntegrationTest
     private static readonly DateTimeOffset Newest = new(2026, 9, 29, 11, 0, 0, TimeSpan.Zero);
     private static readonly DateTimeOffset DisabledAt = new(2026, 9, 29, 15, 0, 0, TimeSpan.Zero);
 
-    // Two Visible, one unpublished and one Disabled, with the hidden ones newest.
     private static async Task SeedMixedAsync()
     {
         await Orchestrator.SeedEntityAsync(Seeded("older", Oldest, isPublished: true));

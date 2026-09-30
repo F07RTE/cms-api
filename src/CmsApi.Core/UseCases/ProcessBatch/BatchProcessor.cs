@@ -50,7 +50,6 @@ public sealed class BatchProcessor(
         }
     }
 
-    // The endpoint already checked the whole-body rules, so the body is a JSON array.
     private static List<CmsEventValidation> Validate(string body)
     {
         using var document = JsonDocument.Parse(body, BatchLimits.ParseOptions);
