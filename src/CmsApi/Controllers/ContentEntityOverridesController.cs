@@ -28,6 +28,6 @@ public sealed class ContentEntityOverridesController(IContentEntityRepository co
 
     private IActionResult OkOrNotFound(StoredContentEntity? contentEntity) =>
         contentEntity is null
-            ? NotFound(ContentEntityProblems.NotFound())
+            ? this.ContentEntityNotFound()
             : Ok(AdminContentEntityResponse.From(contentEntity));
 }
