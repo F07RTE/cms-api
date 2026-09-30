@@ -3,7 +3,6 @@ using System.Text.Json.Serialization;
 
 namespace CmsApi.Http;
 
-/// <summary>Writes a string that already holds JSON as that JSON, with no re-serialisation.</summary>
 public sealed class RawJsonConverter : JsonConverter<string>
 {
     // Response-only: request bodies are never bound to a raw-JSON string.

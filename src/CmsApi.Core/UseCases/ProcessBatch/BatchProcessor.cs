@@ -9,7 +9,6 @@ using CmsApi.Core.Domain.Inbox;
 
 namespace CmsApi.Core.UseCases.ProcessBatch;
 
-/// <summary>Validates each CMS Event, then applies each Content Entity's group in its own transaction.</summary>
 public sealed class BatchProcessor(
     IEventLogRepository eventLog,
     IContentEntityRepository contentEntities,

@@ -8,7 +8,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CmsApi.Controllers;
 
-/// <summary>An Admin disables or enables a Content Entity. Writes and answers from the writer.</summary>
 [ApiController]
 [Route("entities/{id}")]
 [Authorize(Policy = AuthNames.AdminOnlyPolicy)]

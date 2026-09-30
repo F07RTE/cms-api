@@ -4,7 +4,6 @@ using CmsApi.Http;
 
 namespace CmsApi.Dtos;
 
-/// <summary>A Content Entity as a User sees it.</summary>
 public sealed record ContentEntityResponse(
     string Id,
     long Version,

@@ -9,7 +9,6 @@ using Microsoft.Extensions.Options;
 
 namespace CmsApi.Auth;
 
-/// <summary>Basic auth. Checks the CMS Client credential first, then the Users.</summary>
 public sealed class BasicAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,

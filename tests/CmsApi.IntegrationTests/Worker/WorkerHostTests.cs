@@ -10,7 +10,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace CmsApi.IntegrationTests.Worker;
 
-/// <summary>Smoke test: the real Worker host, polling, picks up a posted Batch.</summary>
+// Smoke test on the real clock: the only test that waits, because it proves the real host polls.
 public sealed class WorkerHostTests : IntegrationTest
 {
     [Test]
@@ -50,7 +50,6 @@ public sealed class WorkerHostTests : IntegrationTest
 
     private static readonly object Payload = new { title = "Hello" };
 
-    // The real host on the real clock, so it idles and polls as in production.
     private static IHost BuildWorkerHost() =>
         WorkerHost
             .Configure(

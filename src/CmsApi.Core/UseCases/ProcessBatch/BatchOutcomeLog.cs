@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace CmsApi.Core.UseCases.ProcessBatch;
 
-/// <summary>Logs what became of each CMS Event of a Batch. Never logs a payload or a raw event.</summary>
+// Never logs a payload or a raw event.
 public sealed class BatchOutcomeLog(TimeProvider timeProvider, ILogger<BatchOutcomeLog> logger)
 {
     private const string FailedTemplate =

@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CmsApi.Controllers;
 
-/// <summary>Content Entities for Users and Admins, each in its role's shape. Reads from the reader.</summary>
 [ApiController]
 [Route("entities")]
 [Authorize(Policy = AuthNames.ApiUserPolicy)]

@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Identity;
 
 namespace CmsApi.Auth.AuthenticateUser;
 
-/// <summary>Argon2id, stored as a PHC string. A hash made with other settings verifies, then asks for a rehash.</summary>
 public sealed class Argon2PasswordHasher : IPasswordHasher<StoredUser>
 {
     private const int TimeCost = 2;

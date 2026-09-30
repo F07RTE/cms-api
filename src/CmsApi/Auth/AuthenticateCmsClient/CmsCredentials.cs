@@ -1,6 +1,5 @@
 namespace CmsApi.Auth.AuthenticateCmsClient;
 
-/// <summary>The one CMS Client credential. Plaintext in the secret store; compared in fixed time.</summary>
 public sealed class CmsCredentials
 {
     public const string SectionName = "CmsCredentials";

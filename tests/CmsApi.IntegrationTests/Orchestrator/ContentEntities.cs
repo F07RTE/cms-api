@@ -5,10 +5,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CmsApi.IntegrationTests;
 
-/// <summary>What the worker stores: Content Entities, Tombstones and the Event Log.</summary>
 public static partial class Orchestrator
 {
-    /// <summary>A Content Entity as the worker would store it. Not saved: pass it to <see cref="SeedEntityAsync"/>.</summary>
     public static ContentEntity NewContentEntity(
         string id,
         DateTimeOffset lastEventAt,
@@ -25,7 +23,6 @@ public static partial class Orchestrator
             LastEventAt = lastEventAt,
         };
 
-    /// <summary>Sets the admin columns as an Admin disabling it would.</summary>
     public static ContentEntity Disable(
         ContentEntity contentEntity,
         string adminUsername,
@@ -36,7 +33,6 @@ public static partial class Orchestrator
         return contentEntity;
     }
 
-    /// <summary>Stores a Content Entity directly, as if earlier Batches had created it.</summary>
     public static Task<ContentEntity> SeedEntityAsync(ContentEntity contentEntity) =>
         WithWriterAsync(async context =>
         {

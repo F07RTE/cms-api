@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CmsApi.Controllers;
 
-/// <summary>The CMS webhook. Stores the Batch in the Inbox; the worker processes it later.</summary>
 [ApiController]
 [Route("cms/events")]
 [Authorize(Policy = AuthNames.CmsClientPolicy)]

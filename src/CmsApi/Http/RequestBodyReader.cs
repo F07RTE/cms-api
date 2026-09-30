@@ -6,8 +6,6 @@ public static class RequestBodyReader
 {
     private const int ChunkBytes = 81920;
 
-    /// <summary>Reads the raw body, stopping as soon as it passes <paramref name="maxBytes"/>.</summary>
-    /// <exception cref="BatchTooLargeException">The body is larger than <paramref name="maxBytes"/>.</exception>
     public static async Task<ReadOnlyMemory<byte>> ReadBodyAsync(
         this HttpRequest request,
         int maxBytes,

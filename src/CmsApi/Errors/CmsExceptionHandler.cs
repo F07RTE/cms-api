@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CmsApi.Errors;
 
-/// <summary>Turns every exception into ProblemDetails + <c>action</c>.</summary>
 public sealed partial class CmsExceptionHandler(
     IProblemDetailsService problemDetails,
     ILogger<CmsExceptionHandler> logger

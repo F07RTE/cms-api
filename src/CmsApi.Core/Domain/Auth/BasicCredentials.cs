@@ -10,7 +10,6 @@ public sealed record BasicCredentials(string Username, string Password)
     private const string SchemePrefix = Scheme + " ";
     private const char Separator = ':';
 
-    /// <summary>Parses an <c>Authorization</c> header value. The password may contain colons.</summary>
     public static bool TryParse(
         string? headerValue,
         [NotNullWhen(true)] out BasicCredentials? credentials

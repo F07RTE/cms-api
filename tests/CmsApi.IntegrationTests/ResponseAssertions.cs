@@ -8,7 +8,6 @@ namespace CmsApi.IntegrationTests;
 
 public static class ResponseAssertions
 {
-    /// <summary>Asserts a ProblemDetails body with the status and an <c>action</c>.</summary>
     public static async Task ShouldBeProblemAsync(
         this HttpResponseMessage response,
         HttpStatusCode status
@@ -24,7 +23,6 @@ public static class ResponseAssertions
         problem.GetProperty("action").GetString().Should().NotBeNullOrWhiteSpace();
     }
 
-    /// <summary>Asserts a 401 ProblemDetails that asks for Basic credentials.</summary>
     public static async Task ShouldBeChallengedAsync(this HttpResponseMessage response)
     {
         await response.ShouldBeProblemAsync(HttpStatusCode.Unauthorized);
@@ -36,7 +34,6 @@ public static class ResponseAssertions
             .Be(BasicChallenge);
     }
 
-    /// <summary>The property names of a JSON object, to assert a DTO exposes no more than it should.</summary>
     public static IEnumerable<string> PropertyNames(this JsonElement jsonObject) =>
         jsonObject.EnumerateObject().Select(property => property.Name);
 

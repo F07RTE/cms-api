@@ -7,13 +7,11 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace CmsApi.IntegrationTests;
 
-/// <summary>Users: seeding and reading back the <c>users</c> table.</summary>
 public static partial class Orchestrator
 {
     public const string ReaderUsername = "reader";
     public const string AdminUsername = "admin";
 
-    /// <summary>Stores a User with a fresh random password; returns the credentials to log in with.</summary>
     public static async Task<BasicCredentials> CreateUserAsync(string username, UserRole role)
     {
         var hasher = Factory.Services.GetRequiredService<IPasswordHasher<StoredUser>>();
@@ -23,7 +21,6 @@ public static partial class Orchestrator
         return new BasicCredentials(username, password);
     }
 
-    /// <summary>Stores a User with the given password hash, as-is.</summary>
     public static Task CreateUserAsync(StoredUser user) =>
         WithWriterAsync(context =>
         {
@@ -39,7 +36,6 @@ public static partial class Orchestrator
             return context.SaveChangesAsync();
         });
 
-    /// <summary>Removes every User, e.g. to show a login was served from the credential cache.</summary>
     public static Task DeleteUsersAsync() =>
         WithWriterAsync(context => context.Users.ExecuteDeleteAsync());
 

@@ -1,6 +1,5 @@
 namespace CmsApi.Core.UseCases.ProcessInbox;
 
-/// <summary>How long a failed Batch waits before its next attempt: 2^attempts seconds, capped.</summary>
 public static class RetryBackoff
 {
     public static readonly TimeSpan MaxDelay = TimeSpan.FromMinutes(5);

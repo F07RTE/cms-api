@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 
 namespace CmsApi.Core.UseCases.ProcessInbox;
 
-/// <summary>Takes Batches from the Inbox, one at a time. The seam the worker loop and the tests drive.</summary>
 public sealed class InboxProcessor(
     IInboxRepository inbox,
     IBatchProcessor batchProcessor,
@@ -12,10 +11,8 @@ public sealed class InboxProcessor(
     ILogger<InboxProcessor> logger
 )
 {
-    /// <summary>Attempts a Batch gets before it becomes a Dead Batch.</summary>
     public const int MaxAttempts = 5;
 
-    /// <summary>Claims, processes and completes the next due Batch. False when there was none.</summary>
     public async Task<bool> ProcessNextBatchAsync(CancellationToken cancellationToken)
     {
         var batch = await inbox.ClaimNextAsync(cancellationToken);

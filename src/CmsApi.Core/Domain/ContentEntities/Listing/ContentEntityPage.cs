@@ -1,15 +1,11 @@
 namespace CmsApi.Core.Domain.ContentEntities.Listing;
 
-/// <summary>One page of Content Entities. <see cref="Next"/> is null on the last page.</summary>
 public sealed record ContentEntityPage(
     IReadOnlyList<StoredContentEntity> Items,
     ContentEntityCursor? Next
 )
 {
-    /// <summary>
-    /// Builds the page from up to <paramref name="limit"/> + 1 rows: the lookahead row, if there,
-    /// only tells that another page exists.
-    /// </summary>
+    // The lookahead row (limit + 1) only tells that another page exists.
     public static ContentEntityPage FromRowsWithLookahead(
         IReadOnlyList<StoredContentEntity> rows,
         int limit

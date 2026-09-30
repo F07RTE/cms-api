@@ -3,7 +3,6 @@ using System.Text.Json;
 
 namespace CmsApi.Core.Domain.Events.Validation;
 
-/// <summary>Turns one raw element of a Batch into a valid CMS Event, or a Failed one with the reason.</summary>
 public static class CmsEventValidator
 {
     private const string IdProperty = "id";
@@ -49,7 +48,6 @@ public static class CmsEventValidator
         return ReadEvent(element, id, rawEvent);
     }
 
-    // Each rule in turn; the first one broken is the reason.
     private static CmsEventValidation ReadEvent(JsonElement element, string id, string rawEvent)
     {
         if (HasDuplicateKey(element))
@@ -73,7 +71,6 @@ public static class CmsEventValidator
             : ReadVersioned(element, header, rawEvent);
     }
 
-    // publish and unPublish also carry a version and a payload; the header has neither yet.
     private static CmsEventValidation ReadVersioned(
         JsonElement element,
         CmsEvent header,

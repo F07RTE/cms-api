@@ -6,10 +6,6 @@ public static class EventRules
 {
     private const string UnknownContentEntityReason = "no Content Entity with this id";
 
-    /// <summary>
-    /// Applies one CMS Event to the stored state (null when the id is unknown or deleted) and the
-    /// Tombstone (null unless deleted).
-    /// </summary>
     public static EventDecision Decide(
         ContentEntityState? stored,
         TombstoneState? tombstone,
@@ -31,7 +27,6 @@ public static class EventRules
             : DecideVersioned(stored, cmsEvent);
     }
 
-    /// <summary>Decides a group's CMS Events in order, each against the state the previous one left.</summary>
     public static GroupDecision DecideGroup(
         ContentEntityState? stored,
         TombstoneState? tombstone,

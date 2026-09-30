@@ -282,7 +282,6 @@ public sealed class InboxProcessorTests : IntegrationTest
     private static void ShouldBeSameJson(string actual, string expected) =>
         JsonNode.DeepEquals(JsonNode.Parse(actual), JsonNode.Parse(expected)).Should().BeTrue();
 
-    /// <summary>Stands in for an infrastructure failure: every Batch throws.</summary>
     private sealed class ThrowingBatchProcessor : IBatchProcessor
     {
         public const string Failure = "database unreachable";

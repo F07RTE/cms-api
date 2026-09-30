@@ -2,7 +2,6 @@ using CmsApi.Core.Domain.Inbox;
 
 namespace CmsApi.Data.Inbox;
 
-/// <summary>A Batch in the Inbox. <see cref="Body"/> is the original request text, byte-exact.</summary>
 public sealed class InboxBatch
 {
     public long Id { get; set; }

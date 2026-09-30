@@ -15,7 +15,6 @@ namespace CmsApi.Data;
 
 public static class DataServiceCollectionExtensions
 {
-    /// <summary>Registers both contexts. For the API host.</summary>
     public static IServiceCollection AddCmsData(
         this IServiceCollection services,
         IConfiguration configuration
@@ -41,7 +40,7 @@ public static class DataServiceCollectionExtensions
         return services;
     }
 
-    /// <summary>Registers the writer context only. For the worker, which never reads from a replica.</summary>
+    // The worker registers the writer only: it never reads from a replica.
     public static IServiceCollection AddCmsWriteData(
         this IServiceCollection services,
         IConfiguration configuration

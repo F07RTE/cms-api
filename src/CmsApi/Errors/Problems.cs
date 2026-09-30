@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CmsApi.Errors;
 
-/// <summary>Builds ProblemDetails with the <c>action</c> extension every error carries.</summary>
 public static class Problems
 {
     public const string ActionKey = "action";

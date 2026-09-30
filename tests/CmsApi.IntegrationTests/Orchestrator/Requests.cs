@@ -10,7 +10,6 @@ using Microsoft.Extensions.Options;
 
 namespace CmsApi.IntegrationTests;
 
-/// <summary>HTTP: clients, credentials, and one helper per route.</summary>
 public static partial class Orchestrator
 {
     public const string ContentEntitiesRoute = "/entities";
@@ -21,7 +20,6 @@ public static partial class Orchestrator
 
     public static HttpClient CreateClient() => Factory.CreateClient();
 
-    /// <summary>A client for a host started with one configuration value overridden.</summary>
     public static HttpClient CreateClientWithSetting(string key, string value) =>
         Factory.WithWebHostBuilder(builder => builder.UseSetting(key, value)).CreateClient();
 
@@ -37,14 +35,12 @@ public static partial class Orchestrator
         return client;
     }
 
-    /// <summary>The CMS Client credential from <c>appsettings.Testing.json</c>.</summary>
     public static BasicCredentials CmsClientCredentials()
     {
         var credentials = Factory.Services.GetRequiredService<IOptions<CmsCredentials>>().Value;
         return new BasicCredentials(credentials.Username, credentials.Password);
     }
 
-    /// <summary>A <c>publish</c> or <c>unPublish</c> CMS Event, as the CMS Client sends it.</summary>
     public static object CmsEvent(
         string type,
         string id,
@@ -61,7 +57,6 @@ public static partial class Orchestrator
             payload,
         };
 
-    /// <summary>A <c>delete</c> CMS Event, as the CMS Client sends it.</summary>
     public static object DeleteEvent(string id, DateTimeOffset timestamp) =>
         new
         {
@@ -73,11 +68,9 @@ public static partial class Orchestrator
     public static Task<HttpResponseMessage> PostBatchAsync(IEnumerable<object> events) =>
         PostBatchAsync(JsonSerializer.Serialize(events));
 
-    /// <summary>Posts the body as given, as the CMS Client.</summary>
     public static Task<HttpResponseMessage> PostBatchAsync(string body) =>
         PostBatchAsync(Encoding.UTF8.GetBytes(body), CmsClientCredentials());
 
-    /// <summary>Posts the raw bytes. <paramref name="credentials"/> null posts anonymously.</summary>
     public static async Task<HttpResponseMessage> PostBatchAsync(
         byte[] body,
         BasicCredentials? credentials
@@ -100,7 +93,6 @@ public static partial class Orchestrator
         return await client.GetAsync($"{ContentEntitiesRoute}/{id}");
     }
 
-    /// <summary>Gets <c>/entities</c> with the query string as given, e.g. <c>?limit=2</c>.</summary>
     public static async Task<HttpResponseMessage> ListContentEntitiesAsync(
         BasicCredentials credentials,
         string query = ""

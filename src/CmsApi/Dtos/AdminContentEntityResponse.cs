@@ -4,7 +4,6 @@ using CmsApi.Http;
 
 namespace CmsApi.Dtos;
 
-/// <summary>A Content Entity as an Admin sees it: the User fields plus the admin fields.</summary>
 public sealed record AdminContentEntityResponse(
     string Id,
     long Version,

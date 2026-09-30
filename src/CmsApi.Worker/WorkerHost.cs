@@ -3,7 +3,7 @@ using CmsApi.Data;
 
 namespace CmsApi.Worker;
 
-/// <summary>Builds the worker host. Public so a test can build the real host.</summary>
+// Public so a test can build the real host.
 public static class WorkerHost
 {
     // Bounds how long the current entity group gets to commit on shutdown.

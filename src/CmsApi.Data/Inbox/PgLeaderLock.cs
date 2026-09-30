@@ -4,10 +4,7 @@ using Npgsql;
 
 namespace CmsApi.Data.Inbox;
 
-/// <summary>
-/// A session-level Postgres advisory lock on a connection of its own, held for as long as the
-/// worker leads. Losing the connection loses the lock.
-/// </summary>
+// A session-level advisory lock on a connection of its own: losing the connection loses the lock.
 internal sealed class PgLeaderLock(IOptions<ConnectionStringOptions> options) : ILeaderLock
 {
     // Any fixed key works; every worker has to use the same one.

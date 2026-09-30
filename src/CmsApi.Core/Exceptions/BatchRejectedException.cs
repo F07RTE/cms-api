@@ -1,9 +1,8 @@
 namespace CmsApi.Core.Exceptions;
 
-/// <summary>A Batch that broke a whole-body rule and never reached the Inbox.</summary>
 public abstract class BatchRejectedException(string message, string action, long bodyBytes)
     : CmsApiException(message, action)
 {
-    /// <summary>Bytes received, for the log. The body itself is never logged.</summary>
+    // For the log: the body itself is never logged.
     public long BodyBytes { get; } = bodyBytes;
 }

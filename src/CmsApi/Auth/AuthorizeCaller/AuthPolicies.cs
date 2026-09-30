@@ -4,7 +4,7 @@ namespace CmsApi.Auth.AuthorizeCaller;
 
 public static class AuthPolicies
 {
-    /// <summary>One policy per kind of caller. An endpoint with no policy still needs an authenticated caller.</summary>
+    // An endpoint with no policy still needs an authenticated caller.
     public static IServiceCollection AddCmsAuthPolicies(this IServiceCollection services)
     {
         services

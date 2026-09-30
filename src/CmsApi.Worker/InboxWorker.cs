@@ -4,10 +4,6 @@ using Microsoft.Extensions.Options;
 
 namespace CmsApi.Worker;
 
-/// <summary>
-/// Leads the Inbox while it holds the leader lock: recovers Orphaned Batches, then drains back to back and
-/// sleeps for the poll interval when nothing is due. Without the lock it idles and retries.
-/// </summary>
 internal sealed class InboxWorker(
     IServiceScopeFactory scopeFactory,
     ILeaderLock leaderLock,

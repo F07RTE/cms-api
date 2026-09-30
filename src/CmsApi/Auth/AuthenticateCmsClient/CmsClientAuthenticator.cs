@@ -5,7 +5,6 @@ using Microsoft.Extensions.Options;
 
 namespace CmsApi.Auth.AuthenticateCmsClient;
 
-/// <summary>Checks Basic credentials against the one CMS Client credential from config.</summary>
 public sealed class CmsClientAuthenticator(IOptions<CmsCredentials> cmsCredentials)
 {
     // Both fields are always compared, so the time taken doesn't reveal which one was wrong.

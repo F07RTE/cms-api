@@ -4,6 +4,7 @@
 - Method names describe what they do: `ClaimNextAsync()` not `GetData()`
 - Methods are short (~20 lines max) — extract when longer
 - No commented-out code left in the codebase
+- No summary comments (`///`): names say what the code does. A `//` comment only explains why, when the code can't
 - One level of abstraction per method
 - Nullable reference types are enabled — express nullability instead of suppressing it with `!`
 - `async void` is never used; every async method returns `Task`/`ValueTask`, and `CancellationToken` flows through

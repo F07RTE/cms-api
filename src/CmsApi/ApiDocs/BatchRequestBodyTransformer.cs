@@ -5,7 +5,6 @@ using Microsoft.OpenApi;
 
 namespace CmsApi.ApiDocs;
 
-/// <summary>Adds the Batch request body, with an example, to the action marked <see cref="BatchRequestBodyAttribute"/>.</summary>
 public sealed class BatchRequestBodyTransformer : IOpenApiOperationTransformer
 {
     private const string Description =

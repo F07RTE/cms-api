@@ -2,7 +2,6 @@ using CmsApi.Core.Domain.ContentEntities.Listing;
 
 namespace CmsApi.Core.Exceptions;
 
-/// <summary>A <c>GET /entities</c> whose <c>limit</c> or <c>cursor</c> doesn't parse.</summary>
 public sealed class InvalidPageRequestException(string message, string action)
     : CmsApiException(message, action)
 {

@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 
 namespace CmsApi.IntegrationTests;
 
-/// <summary>Keeps every structured log the test host writes, so a test can assert on them.</summary>
 public sealed class RecordedLogs : ILoggerProvider
 {
     private readonly ConcurrentQueue<RecordedLog> logs = new();
@@ -44,7 +43,6 @@ public sealed class RecordedLogs : ILoggerProvider
     }
 }
 
-/// <summary>One structured log. The constants name the properties the worker's templates carry.</summary>
 public sealed record RecordedLog(LogLevel Level, IReadOnlyDictionary<string, object?> Properties)
 {
     public const string BatchId = "BatchId";

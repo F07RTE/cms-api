@@ -3,7 +3,6 @@
 
 namespace CmsApi.IntegrationTests;
 
-/// <summary>The base of every integration test: a clean database and no logs from earlier tests.</summary>
 public abstract class IntegrationTest
 {
     [SetUp]
@@ -14,7 +13,6 @@ public abstract class IntegrationTest
     }
 }
 
-/// <summary>Migrates the test database once before any test, and stops the host after the last.</summary>
 [SetUpFixture]
 public sealed class DatabaseSetUp
 {

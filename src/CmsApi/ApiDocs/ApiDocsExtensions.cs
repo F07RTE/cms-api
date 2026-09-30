@@ -21,7 +21,6 @@ public static class ApiDocsExtensions
         return services;
     }
 
-    /// <summary>Serves <c>/openapi/v1.json</c> and <c>/scalar</c> anonymously, when enabled.</summary>
     public static WebApplication MapCmsApiDocs(this WebApplication app)
     {
         if (!app.Services.GetRequiredService<IOptions<ApiDocsOptions>>().Value.Enabled)

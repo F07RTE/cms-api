@@ -2,10 +2,6 @@ using CmsApi.Core.Domain.Events;
 
 namespace CmsApi.Data.EventLog;
 
-/// <summary>
-/// The Event Outcome of one CMS Event. The event columns are null when the element was too
-/// broken to read them; <see cref="RawEvent"/> is set only for <see cref="EventOutcome.Failed"/>.
-/// </summary>
 public sealed class EventLogEntry
 {
     public long Id { get; set; }

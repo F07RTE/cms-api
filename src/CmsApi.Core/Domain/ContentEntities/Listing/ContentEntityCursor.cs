@@ -6,10 +6,7 @@ using CmsApi.Core.Text;
 
 namespace CmsApi.Core.Domain.ContentEntities.Listing;
 
-/// <summary>
-/// Where a page of Content Entities ends: the <c>(updatedAt, id)</c> of its last one. Opaque and
-/// unsigned: a tampered cursor that still parses only moves the start, the visibility filter still applies.
-/// </summary>
+// Opaque, not signed: a tampered cursor that still parses only moves the start; the visibility filter still applies.
 public sealed record ContentEntityCursor(DateTimeOffset UpdatedAt, string Id)
 {
     // Ticks come first and never hold the separator, so the id may.

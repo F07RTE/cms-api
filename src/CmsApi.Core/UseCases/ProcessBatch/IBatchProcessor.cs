@@ -4,6 +4,6 @@ namespace CmsApi.Core.UseCases.ProcessBatch;
 
 public interface IBatchProcessor
 {
-    /// <summary>Records an Event Outcome for every CMS Event in the Batch. Invalid CMS Events never throw.</summary>
+    // Invalid CMS Events are recorded as Failed, never thrown: only an infrastructure failure throws.
     Task ProcessAsync(ClaimedBatch batch, CancellationToken cancellationToken);
 }

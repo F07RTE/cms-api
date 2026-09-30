@@ -5,12 +5,9 @@ using CmsApi.Core.Text;
 
 namespace CmsApi.Core.UseCases.ReceiveBatch;
 
-/// <summary>
-/// Checks the whole-body rules only. Each CMS Event is validated later, by the worker.
-/// </summary>
+// Whole-body rules only: each CMS Event is validated later, by the worker.
 public static class BatchBodyValidator
 {
-    /// <exception cref="InvalidBatchException">The body breaks a whole-body rule.</exception>
     public static ValidBatchBody Validate(ReadOnlyMemory<byte> utf8Body)
     {
         var text = Decode(utf8Body);
@@ -30,7 +27,6 @@ public static class BatchBodyValidator
         return new ValidBatchBody(text, count);
     }
 
-    // Strict, so an invalid byte is rejected instead of silently becoming U+FFFD in the Inbox.
     private static string Decode(ReadOnlyMemory<byte> utf8Body) =>
         StrictUtf8.TryDecode(utf8Body.Span)
         ?? throw new InvalidBatchException("The body is not valid UTF-8.", utf8Body.Length);

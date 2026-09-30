@@ -3,10 +3,8 @@ using CmsApi.Core.Exceptions;
 
 namespace CmsApi.Core.Domain.ContentEntities.Listing;
 
-/// <summary>The <c>limit</c> and <c>cursor</c> of a <c>GET /entities</c>, parsed.</summary>
 public sealed record ContentEntityPageRequest(int Limit, ContentEntityCursor? After)
 {
-    /// <exception cref="InvalidPageRequestException">Either value doesn't parse.</exception>
     public static ContentEntityPageRequest Parse(string? limit, string? cursor) =>
         new(ParseLimit(limit), ParseCursor(cursor));
 

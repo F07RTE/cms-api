@@ -6,10 +6,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CmsApi.Data.ContentEntities;
 
-/// <summary>
-/// The writer's side of <c>content_entities</c>. Every write takes the row lock inside its
-/// transaction; a group also writes <c>tombstones</c> and <c>event_log</c> in that transaction.
-/// </summary>
 internal sealed class ContentEntityRepository(WriteDbContext context, TimeProvider timeProvider)
     : IContentEntityRepository
 {
@@ -111,7 +107,6 @@ internal sealed class ContentEntityRepository(WriteDbContext context, TimeProvid
         }
     }
 
-    // Hard delete: the Tombstone takes the row's place.
     private void Delete(
         ContentEntity? row,
         string id,

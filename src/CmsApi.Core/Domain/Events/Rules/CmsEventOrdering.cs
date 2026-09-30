@@ -2,7 +2,6 @@ namespace CmsApi.Core.Domain.Events.Rules;
 
 public static class CmsEventOrdering
 {
-    /// <summary>Groups by Content Entity id, each group sorted by timestamp, then version.</summary>
     public static IReadOnlyList<ContentEntityGroup> GroupById(IEnumerable<CmsEvent> events) =>
         events
             .GroupBy(cmsEvent => cmsEvent.Id, StringComparer.Ordinal)

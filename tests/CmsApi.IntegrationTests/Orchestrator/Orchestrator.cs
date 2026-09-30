@@ -14,12 +14,11 @@ using Respawn.Graph;
 // ...IntegrationTests.Orchestrator namespace would clash with the class name.
 namespace CmsApi.IntegrationTests;
 
-/// <summary>The test host and every helper a test drives it with. This file: the host and database.</summary>
 public static partial class Orchestrator
 {
     private const string TestingEnvironment = "Testing";
 
-    /// <summary>The clock every host service reads. Starts on a whole second, so Postgres stores it exactly.</summary>
+    // Starts on a whole second, so Postgres stores it exactly.
     public static readonly FakeTimeProvider Clock = new(
         new DateTimeOffset(2026, 9, 29, 12, 0, 0, TimeSpan.Zero)
     );
@@ -38,10 +37,8 @@ public static partial class Orchestrator
 
     public static AsyncServiceScope CreateScope() => Factory.Services.CreateAsyncScope();
 
-    /// <summary>The logs the host services wrote for <paramref name="batchId"/>.</summary>
     public static List<RecordedLog> ReadLogsForBatch(long batchId) => Logs.ForBatch(batchId);
 
-    /// <summary>Forgets the logs of earlier tests.</summary>
     public static void ClearLogs() => Logs.Clear();
 
     public static Task MigrateDatabaseAsync() =>

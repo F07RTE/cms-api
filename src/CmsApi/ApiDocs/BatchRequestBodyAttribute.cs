@@ -1,8 +1,5 @@
 namespace CmsApi.ApiDocs;
 
-/// <summary>
-/// Marks the action that reads a raw Batch from the body, so the OpenAPI document shows its
-/// request body and an example. Model binding never sees that body, so nothing else would.
-/// </summary>
+// The Batch body is read raw, so model binding never sees it; this marker puts it in the OpenAPI document.
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class BatchRequestBodyAttribute : Attribute;

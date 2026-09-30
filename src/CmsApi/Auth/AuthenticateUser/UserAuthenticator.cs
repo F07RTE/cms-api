@@ -7,10 +7,7 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace CmsApi.Auth.AuthenticateUser;
 
-/// <summary>
-/// Checks a User's Basic credentials. Successful checks are cached, so Argon2id runs at most once
-/// per header per <see cref="CacheDuration"/>.
-/// </summary>
+// Successful checks are cached, so Argon2id runs at most once per header per CacheDuration (ADR 0003).
 public sealed class UserAuthenticator(
     IUserRepository users,
     IPasswordHasher<StoredUser> passwordHasher,
@@ -33,7 +30,6 @@ public sealed class UserAuthenticator(
         UserRole.User
     );
 
-    /// <param name="authorizationHeader">The raw header, the cache key's source.</param>
     public async Task<AuthenticatedUser?> AuthenticateAsync(
         string authorizationHeader,
         BasicCredentials credentials,
