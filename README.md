@@ -43,8 +43,8 @@ dotnet r dev
 The script is POSIX `sh`. On Windows, run it from Git Bash with `dotnet r dev --script-shell bash`, or start each host in its own terminal:
 
 ```sh
-dotnet run --project CmsApi          # API on http://localhost:5290
-dotnet run --project CmsApi.Worker   # processes the Inbox
+dotnet run --project src/CmsApi          # API on http://localhost:5290
+dotnet run --project src/CmsApi.Worker   # processes the Inbox
 ```
 
 Without the worker, `POST /cms/events` still answers 202, but nothing reaches `/entities`.
@@ -53,7 +53,7 @@ Without the worker, `POST /cms/events` still answers 202, but nothing reaches `/
 
 | Caller     | Username         | Password                               | Can call                          |
 | ---------- | ---------------- | -------------------------------------- | --------------------------------- |
-| CMS Client | `cms-dev-client` | see `CmsApi/appsettings.Development.json` | `POST /cms/events`             |
+| CMS Client | `cms-dev-client` | see `src/CmsApi/appsettings.Development.json` | `POST /cms/events`             |
 | Admin      | `admin`          | `admin123`                             | every `/entities` route           |
 | User       | `reader`         | `reader123`                            | `GET /entities`, `GET /entities/{id}` |
 
@@ -107,6 +107,33 @@ dotnet r lint:run     # format with CSharpier (CI runs lint:check)
 - TLS ends at a reverse proxy in front of the API.
 
 ## Design notes
+
+### Code structure
+
+```
+src/
+  CmsApi/            HTTP host: controllers, DTOs, auth, errors
+  CmsApi.Worker/     Worker host: the Inbox loop
+  CmsApi.Core/
+    Domain/          one folder per concept: its types, rules and repository interface
+    UseCases/        ReceiveBatch, ProcessInbox, ProcessBatch
+  CmsApi.Data/       one folder and one repository per table, EF contexts, migrations
+tests/
+  CmsApi.UnitTests/         mirror Core
+  CmsApi.IntegrationTests/  mirror the routes, plus the end-to-end flow
+```
+
+Dependencies point inward: both hosts depend on Core, and Data implements Core's repository interfaces. The two hosts never reference each other; the `inbox` table is the only thing they share.
+
+| Use case | Delivered by | Core | Repository |
+| --- | --- | --- | --- |
+| Receive Batch (`POST /cms/events`) | API | `BatchReceiver` | `InboxRepository` |
+| Process Inbox (poll loop, Leader, retries) | Worker | `InboxProcessor` | `InboxRepository`, `PgLeaderLock` |
+| Process Batch (validate, decide, store) | Worker | `BatchProcessor` | `ContentEntityRepository`, `EventLogRepository` |
+| List / Get Content Entities | API | none | `ContentEntityReadRepository` (Reader) |
+| Disable / Enable a Content Entity | API | none | `ContentEntityRepository` (Writer) |
+
+Only use cases with logic of their own get a class in `UseCases/`. List, Get, Disable and Enable are a single repository call, so their controllers call the repository directly; a class that only forwards the call would add a layer and no behaviour.
 
 ### Sync vs async ingestion
 
@@ -192,3 +219,4 @@ So the lock only serialises them; neither ever overwrites the other.
 ## Future work
 
 - **More than one worker.** Claim Batches with `FOR UPDATE SKIP LOCKED` instead of a leader lock. The row lock and primary keys already keep concurrent groups correct. What would be lost is arrival order between Batches, which the version rules don't depend on.
+- **Hosts organised by use case.** Give the API one folder and one controller per use case (`ReceiveBatch/`, `ListContentEntities/`, …), so a use case has the same name in the host, Core and the tests. Today's host keeps ASP.NET's `Controllers/` and `Dtos/`, which is small enough to read at a glance.

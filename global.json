@@ -6,9 +6,9 @@
     "scripts": {
         "services:up": "docker compose -f infra/compose.yaml up -d --wait",
         "services:down": "docker compose -f infra/compose.yaml down",
-        "migrations:add": "dotnet ef migrations add --project CmsApi.Data --startup-project CmsApi --context WriteDbContext --output-dir Migrations",
-        "migrations:up": "dotnet ef database update --project CmsApi.Data --startup-project CmsApi --context WriteDbContext -- --environment Development",
-        "dev": "dotnet r services:up migrations:up && dotnet build && (trap 'kill 0' INT TERM; dotnet run --no-build --project CmsApi.Worker & dotnet run --no-build --project CmsApi; wait)",
+        "migrations:add": "dotnet ef migrations add --project src/CmsApi.Data --startup-project src/CmsApi --context WriteDbContext --output-dir Migrations",
+        "migrations:up": "dotnet ef database update --project src/CmsApi.Data --startup-project src/CmsApi --context WriteDbContext -- --environment Development",
+        "dev": "dotnet r services:up migrations:up && dotnet build && (trap 'kill 0' INT TERM; dotnet run --no-build --project src/CmsApi.Worker & dotnet run --no-build --project src/CmsApi; wait)",
         "test": "dotnet test",
         "lint:run": "dotnet csharpier format .",
         "lint:check": "dotnet csharpier check ."

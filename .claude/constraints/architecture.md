@@ -14,19 +14,23 @@
 
 - Dependencies point inward: `CmsApi → Core ← Data`, `CmsApi.Worker → Core ← Data`
 - The hosts (`CmsApi`, `CmsApi.Worker`) never reference each other. The Inbox is their only coupling
-- `CmsApi.Core` holds the domain, event rules, batch processing and interfaces (`IInbox`, …). It has no EF Core or ASP.NET Core dependency
-- `CmsApi.Data` implements Core's interfaces: EF contexts, the Inbox, migrations
+- `CmsApi.Core` holds the domain, the event rules, the use cases and the repository interfaces (`IInboxRepository`, …). It has no EF Core or ASP.NET Core dependency
+- `CmsApi.Data` implements Core's repository interfaces: EF contexts, one repository per table, migrations
 - Controllers stay thin: auth policy, binding, calling Core/Data, mapping to response DTOs. No event rules in controllers
 - Event rules and batch ordering are pure functions in Core, with no I/O
 - Shared DI goes through `AddCmsCore()` / `AddCmsData(config)`, not per-host copies
 
 ## Folder Layout
 
+- Projects live in `src/`, test projects in `tests/`
 - Folders group by purpose, not by kind. A folder says what its files are for (`Events/Validation`, `Events/Rules`, `Inbox`), never what they are (`Models`, `Enums`, `Interfaces`, `Services`)
-- The domain types of a concept sit at its root (`Events/CmsEvent`, `Events/EventOutcome`); sub-folders hold one purpose each
-- A Core interface lives in the folder named for its concept, and Data implements it in the folder of the same name (`Core/ContentEntities/IContentEntityStore` ↔ `Data/ContentEntities/EfContentEntityStore`)
+- Core has two parts:
+    - `Domain/`: one folder per concept, holding its types and its repository interface (`Domain/Events/CmsEvent`, `Domain/Inbox/IInboxRepository`); sub-folders hold one purpose each
+    - `UseCases/`: one folder per use case that has logic of its own (`ReceiveBatch`, `ProcessInbox`, `ProcessBatch`). A use case that only reads or writes through a repository has no class: its controller calls the repository. Add the folder when logic appears
+- Data has one folder per table and one repository per table, mirroring `Domain/` (`Core/Domain/Inbox/IInboxRepository` ↔ `Data/Inbox/InboxRepository`). `content_entities` has two, split by context: `ContentEntityReadRepository` (Reader) and `ContentEntityRepository` (Writer)
+- A write that spans tables lives in the repository of the table whose row it locks (`ContentEntityRepository.ApplyGroupAsync` also writes `tombstones` and `event_log`)
 - Namespace = folder path
-- Exception: `Core/Exceptions` holds the shared exception hierarchy
+- Exceptions: `Core/Exceptions` holds the shared exception hierarchy; the API host keeps ASP.NET's `Controllers/` and `Dtos/`
 
 ## Data Access
 

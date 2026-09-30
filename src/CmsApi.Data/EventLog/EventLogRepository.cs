@@ -1,0 +1,37 @@
+using CmsApi.Core.Domain.EventLog;
+using CmsApi.Core.Domain.Events;
+using CmsApi.Core.Domain.Events.Validation;
+using Microsoft.EntityFrameworkCore;
+
+namespace CmsApi.Data.EventLog;
+
+internal sealed class EventLogRepository(WriteDbContext context, TimeProvider timeProvider)
+    : IEventLogRepository
+{
+    public async Task<bool> RecordFailedAsync(
+        long batchId,
+        IReadOnlyList<FailedCmsEvent> failedEvents,
+        CancellationToken cancellationToken
+    )
+    {
+        if (failedEvents.Count == 0 || await HasFailedEntriesAsync(batchId, cancellationToken))
+        {
+            return false;
+        }
+
+        var processedAt = timeProvider.GetUtcNow();
+        context.EventLog.AddRange(
+            failedEvents.Select(failed => EventLogEntries.Failed(batchId, failed, processedAt))
+        );
+        await context.SaveChangesAsync(cancellationToken);
+        context.ChangeTracker.Clear();
+        return true;
+    }
+
+    // The Failed rows of a Batch are saved together, so any one means a replay already has them all.
+    private Task<bool> HasFailedEntriesAsync(long batchId, CancellationToken cancellationToken) =>
+        context.EventLog.AnyAsync(
+            entry => entry.BatchId == batchId && entry.Outcome == EventOutcome.Failed,
+            cancellationToken
+        );
+}

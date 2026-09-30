@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CmsApi.Core\CmsApi.Core.csproj" />
+  </ItemGroup>
+</Project>

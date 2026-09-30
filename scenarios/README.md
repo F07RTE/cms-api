@@ -5,7 +5,7 @@
 ## Setup
 
 1. Start everything: `dotnet r dev`.
-2. Create `scenarios/http-client.private.env.json` (gitignored) with the dev CMS password from `CmsApi/appsettings.Development.json`:
+2. Create `scenarios/http-client.private.env.json` (gitignored) with the dev CMS password from `src/CmsApi/appsettings.Development.json`:
 
    ```json
    { "dev": { "cmsPassword": "<CmsCredentials:Password>" } }

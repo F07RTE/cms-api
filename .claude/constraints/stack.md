@@ -12,16 +12,16 @@
 
 ## Layout
 
-- `CmsApi` — HTTP host: controllers, DTOs, auth, error handling
-- `CmsApi.Worker` — Worker Service host: the Inbox `BackgroundService` only; own process, own appsettings
-- `CmsApi.Core` — domain, event rules, validation, batch processing, interfaces
-- `CmsApi.Data` — EF Read/Write contexts, the Inbox, migrations
-- `CmsApi.UnitTests`, `CmsApi.IntegrationTests`
+- `src/CmsApi` — HTTP host: controllers, DTOs, auth, error handling
+- `src/CmsApi.Worker` — Worker Service host: the Inbox `BackgroundService` only; own process, own appsettings
+- `src/CmsApi.Core` — `Domain/` (concepts, event rules, validation, repository interfaces) and `UseCases/`
+- `src/CmsApi.Data` — EF Read/Write contexts, one repository per table, migrations
+- `tests/CmsApi.UnitTests`, `tests/CmsApi.IntegrationTests`
 - `infra/` — compose and the Postgres init script
 
 ## Conventions
 
-- Services are interface-first where there's a seam (`IInbox`, `IBatchProcessor`, …); no `new` of services inside other services
+- Services are interface-first where there's a seam (`IInboxRepository`, `IBatchProcessor`, …); no `new` of services inside other services
 - Response DTOs are separate records from EF entities; controllers never return EF entities
 - Routes exactly per spec: `POST /cms/events`, `GET /entities`, `GET /entities/{id}`, `PATCH /entities/{id}/disable|enable`
 - JSON is camelCase; timestamps are ISO-8601 UTC (`DateTimeOffset`)

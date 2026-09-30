@@ -1,8 +1,12 @@
 <Solution>
-    <Project Path="CmsApi.Core/CmsApi.Core.csproj" />
-    <Project Path="CmsApi.Data/CmsApi.Data.csproj" />
-    <Project Path="CmsApi.IntegrationTests/CmsApi.IntegrationTests.csproj" />
-    <Project Path="CmsApi.UnitTests/CmsApi.UnitTests.csproj" />
-    <Project Path="CmsApi.Worker/CmsApi.Worker.csproj" />
-    <Project Path="CmsApi/CmsApi.csproj" />
+    <Folder Name="/src/">
+        <Project Path="src/CmsApi.Core/CmsApi.Core.csproj" />
+        <Project Path="src/CmsApi.Data/CmsApi.Data.csproj" />
+        <Project Path="src/CmsApi.Worker/CmsApi.Worker.csproj" />
+        <Project Path="src/CmsApi/CmsApi.csproj" />
+    </Folder>
+    <Folder Name="/tests/">
+        <Project Path="tests/CmsApi.IntegrationTests/CmsApi.IntegrationTests.csproj" />
+        <Project Path="tests/CmsApi.UnitTests/CmsApi.UnitTests.csproj" />
+    </Folder>
 </Solution>
