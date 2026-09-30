@@ -8,6 +8,8 @@ Keeps a private, versioned copy of the content a CMS publishes, and serves it to
 
 The domain vocabulary is in [`CONTEXT.md`](CONTEXT.md). The decisions that are hard to reverse are in [`docs/adr/`](docs/adr/).
 
+![Architecture](docs/architecture.excalidraw.svg)
+
 ## Running it
 
 ### Prerequisites
@@ -27,6 +29,7 @@ dotnet r dev          # starts Postgres 17 and RabbitMQ, applies migrations, run
 The API runs on http://localhost:5290. It's one process: the API also consumes the Batches it queues, and declares its queues on start.
 
 - Migrations are never applied at startup. `dev` runs `migrations:up` first; run it yourself after pulling new ones if you start the API another way.
+- On an empty database, `migrations:up` logs a `fail` for `SELECT ... FROM "__EFMigrationsHistory"`. It's harmless: EF reads its history table before creating it, then creates it and applies every migration.
 - The first start runs `infra/postgres/init.sql`. It creates two databases (`cms_api` for dev, `cms_api_test` for tests) and two roles: `cms_writer`, which owns the tables, and `cms_reader`, which can only `SELECT`.
 - RabbitMQ's management UI is at http://localhost:15672 (`cms` / `cms_local`).
 - `dotnet r services:down` stops Postgres and RabbitMQ. The data volumes survive it.
