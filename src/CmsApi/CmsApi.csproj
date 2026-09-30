@@ -6,6 +6,7 @@
   <ItemGroup>
     <ProjectReference Include="..\CmsApi.Core\CmsApi.Core.csproj" />
     <ProjectReference Include="..\CmsApi.Data\CmsApi.Data.csproj" />
+    <ProjectReference Include="..\CmsApi.Messaging\CmsApi.Messaging.csproj" />
   </ItemGroup>
 
   <ItemGroup>

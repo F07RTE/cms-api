@@ -1,5 +1,7 @@
 # Async ingestion via an inbox table
 
+Status: amended by ADR 0004. The Inbox table stays; RabbitMQ now delivers Batches to the consumer, replacing the broker rejection below and the single polling worker.
+
 `POST /cms/events` saves the raw Batch to an Inbox table and returns 202. A background worker processes it later. We chose this over processing inside the request, even though that is simpler and gives the CMS immediate per-event feedback, because it keeps the webhook fast whatever the batch size, absorbs spikes, and processes batches in arrival order without parallel requests racing on the same Content Entity.
 
 ## Considered Options

@@ -11,9 +11,9 @@ Cover what the spec asks for and each rule once. No exotic scenarios, no timing-
 
 ## Test Conventions
 
-- Unit tests (`CmsApi.Core.Tests`) cover pure Core logic: event rules, ordering, validation, cursor, Basic header parsing, backoff
+- Unit tests (`CmsApi.Core.Tests`) cover pure Core logic: event rules, ordering, validation, cursor, Basic header parsing, retry-or-Dead decision
 - Integration tests (`CmsApi.IntegrationTests`) go through HTTP with `WebApplicationFactory` against the compose Postgres test database. They run serially; Respawn resets the data before each test
-- Worker processing is triggered through the Orchestrator's `DrainInboxAsync()`, never by sleeping
+- Batch processing is triggered through the Orchestrator's `DrainInboxAsync()`, which pulls the real queue with `BasicGet`, never by sleeping. The consumer `BackgroundService` is off in the test host; queues are purged with the Respawn reset
 - Test data goes through Orchestrator helpers (`CreateUserAsync`, `PostBatchAsync`, `SeedEntityAsync`, …) — reuse them rather than writing a second pattern
 - Assertions use FluentAssertions
 - An integration test asserts on the response **and** on what was stored (Content Entity, Tombstone, Event Log) when the endpoint writes. Answering 202 while storing the wrong thing is the bug that reaches production

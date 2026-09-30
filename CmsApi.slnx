@@ -2,6 +2,7 @@
     <Folder Name="/src/">
         <Project Path="src/CmsApi.Core/CmsApi.Core.csproj" />
         <Project Path="src/CmsApi.Data/CmsApi.Data.csproj" />
+        <Project Path="src/CmsApi.Messaging/CmsApi.Messaging.csproj" />
         <Project Path="src/CmsApi.Worker/CmsApi.Worker.csproj" />
         <Project Path="src/CmsApi/CmsApi.csproj" />
     </Folder>

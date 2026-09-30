@@ -15,6 +15,7 @@ Current efforts:
 
 - `.scratch/cms-api-spec/` — the wayfinder map (decision tickets, all resolved)
 - `.scratch/cms-api-build/` — ordered build tickets
+- `.scratch/rabbitmq-delivery/` — tickets for Deliver Batches through RabbitMQ (ADR 0004)
 
 ## When a skill says "publish to the issue tracker"
 

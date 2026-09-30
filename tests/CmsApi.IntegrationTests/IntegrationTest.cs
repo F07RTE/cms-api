@@ -6,10 +6,11 @@ namespace CmsApi.IntegrationTests;
 public abstract class IntegrationTest
 {
     [SetUp]
-    public Task ResetAsync()
+    public async Task ResetAsync()
     {
         Orchestrator.ClearLogs();
-        return Orchestrator.ResetDatabaseAsync();
+        await Orchestrator.ResetDatabaseAsync();
+        await Orchestrator.PurgeQueuesAsync();
     }
 }
 

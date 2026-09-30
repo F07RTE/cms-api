@@ -18,5 +18,23 @@ services:
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - pgdata:/var/lib/postgresql/data
 
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      # The default guest user only accepts loopback connections, which the port mapping isn't.
+      RABBITMQ_DEFAULT_USER: cms
+      RABBITMQ_DEFAULT_PASS: cms_local
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: rabbitmq-diagnostics -q check_port_connectivity
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+
 volumes:
   pgdata:
+  rabbitmqdata:

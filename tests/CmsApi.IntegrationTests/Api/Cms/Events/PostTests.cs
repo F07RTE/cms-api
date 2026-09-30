@@ -31,6 +31,8 @@ public sealed class PostTests : IntegrationTest
         body.GetProperty("batchId").GetInt64().Should().Be(stored.Id);
         body.GetProperty("eventCount").GetInt32().Should().Be(ValidBatchEventCount);
         body.GetProperty("receivedAt").GetDateTimeOffset().Should().Be(stored.ReceivedAt);
+
+        (await Orchestrator.TakeQueuedBatchIdsAsync()).Should().Equal(stored.Id);
     }
 
     [Test]

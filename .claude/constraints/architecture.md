@@ -12,13 +12,14 @@
 
 ## Layer Rules
 
-- Dependencies point inward: `CmsApi → Core ← Data`, `CmsApi.Worker → Core ← Data`
-- The hosts (`CmsApi`, `CmsApi.Worker`) never reference each other. The Inbox is their only coupling
+- Dependencies point inward: `CmsApi → Core ← Data`, `CmsApi → Core ← Messaging`
+- `CmsApi` is the only host. It also runs the Batch consumer (ADR 0004)
 - `CmsApi.Core` holds the domain, the event rules, the use cases and the repository interfaces (`IInboxRepository`, …). It has no EF Core or ASP.NET Core dependency
 - `CmsApi.Data` implements Core's repository interfaces: EF contexts, one repository per table, migrations
+- `CmsApi.Messaging` is an adapter like Data: it implements `IBatchPublisher`, declares the RabbitMQ topology and runs the consumer. It holds no rules: it maps a delivery to a Core call and Core's result to ack or reject
 - Controllers stay thin: auth policy, binding, calling Core/Data, mapping to response DTOs. No event rules in controllers
-- Event rules and batch ordering are pure functions in Core, with no I/O
-- Shared DI goes through `AddCmsCore()` / `AddCmsData(config)`, not per-host copies
+- Event rules, batch ordering and the retry-or-Dead decision are pure functions in Core, with no I/O
+- Shared DI goes through `AddCmsCore()` / `AddCmsData(config)` / `AddCmsMessaging(config)`
 
 ## Folder Layout
 
@@ -26,7 +27,7 @@
 - Folders group by purpose, not by kind. A folder says what its files are for (`Events/Validation`, `Events/Rules`, `Inbox`), never what they are (`Models`, `Enums`, `Interfaces`, `Services`)
 - Core has two parts:
     - `Domain/`: one folder per concept, holding its types and its repository interface (`Domain/Events/CmsEvent`, `Domain/Inbox/IInboxRepository`); sub-folders hold one purpose each
-    - `UseCases/`: one folder per use case that has logic of its own (`ReceiveBatch`, `ProcessInbox`, `ProcessBatch`). A use case that only reads or writes through a repository has no class: its controller calls the repository. Add the folder when logic appears
+    - `UseCases/`: one folder per use case that has logic of its own (`ReceiveBatch`, `ProcessBatch`). A use case that only reads or writes through a repository has no class: its controller calls the repository. Add the folder when logic appears
 - Data has one folder per table and one repository per table, mirroring `Domain/` (`Core/Domain/Inbox/IInboxRepository` ↔ `Data/Inbox/InboxRepository`). `content_entities` has two, split by context: `ContentEntityReadRepository` (Reader) and `ContentEntityRepository` (Writer)
 - A write that spans tables lives in the repository of the table whose row it locks (`ContentEntityRepository.ApplyGroupAsync` also writes `tombstones` and `event_log`)
 - Namespace = folder path
@@ -34,6 +35,5 @@
 
 ## Data Access
 
-- `ReadDbContext` (NoTracking) for GETs and the auth lookup. `WriteDbContext` for ingestion, PATCH and everything the worker does
-- The worker registers the Writer only
+- `ReadDbContext` (NoTracking) for GETs and the auth lookup. `WriteDbContext` for ingestion, PATCH and everything the consumer does
 - Writes to a Content Entity take a row lock (`SELECT … FOR UPDATE`) inside their transaction. No `xmin` token
