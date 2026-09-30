@@ -62,14 +62,8 @@ On Windows PowerShell, call `curl.exe`, not the `curl` alias.
 **Setup**
 
 1. Start everything: `dotnet r dev`.
-2. Create `scenarios/http-client.private.env.json` (gitignored) with the dev CMS password from `src/CmsApi/appsettings.Development.json`:
-
-   ```json
-   { "dev": { "cmsPassword": "<CmsCredentials:Password>" } }
-   ```
-
-3. Pick the `dev` environment in your client:
-   - **Rider / Visual Studio:** reads `http-client.env.json` and the private file natively.
+2. Pick the `dev` environment in your client. `scenarios/http-client.env.json` holds the host and the dev credentials:
+   - **Rider / Visual Studio:** reads `http-client.env.json` natively.
    - **VS Code:** use [httpYac](https://marketplace.visualstudio.com/items?itemName=anweber.vscode-httpyac), which reads the same files. REST Client does not.
 
 **Running**
