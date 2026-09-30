@@ -1,8 +1,8 @@
 using FluentAssertions;
 
-namespace CmsApi.IntegrationTests.Data.Inbox;
+namespace CmsApi.IntegrationTests.Worker;
 
-public sealed class PgLeaderLockTests : IntegrationTest
+public sealed class LeaderLockTests : IntegrationTest
 {
     [Test]
     public async Task SecondReplica_WhileFirstIsLeader()

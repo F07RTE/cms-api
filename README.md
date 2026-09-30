@@ -119,7 +119,7 @@ src/
     UseCases/        ReceiveBatch, ProcessInbox, ProcessBatch
   CmsApi.Data/       one folder and one repository per table, EF contexts, migrations
 tests/
-  CmsApi.UnitTests/         mirror Core
+  CmsApi.Core.Tests/        mirror Core
   CmsApi.IntegrationTests/  mirror the routes, plus the end-to-end flow
 ```
 

@@ -3,7 +3,7 @@ using CmsApi.Core.Domain.Events;
 using CmsApi.Core.Domain.Events.Validation;
 using FluentAssertions;
 
-namespace CmsApi.UnitTests.Domain.Events.Validation;
+namespace CmsApi.Core.Tests.Domain.Events.Validation;
 
 public sealed class CmsEventValidatorTests
 {

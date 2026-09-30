@@ -36,6 +36,7 @@ public sealed class IngestionFlowTests : IntegrationTest
             .ContainSingle()
             .Which.Outcome.Should()
             .Be(EventOutcome.Applied);
+
         var stored = (await Orchestrator.ReadContentEntitiesAsync()).Single();
         stored.IsDisabledByAdmin.Should().BeTrue();
         stored.DisabledBy.Should().Be(Orchestrator.AdminUsername);

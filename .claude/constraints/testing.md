@@ -11,7 +11,7 @@ Cover what the spec asks for and each rule once. No exotic scenarios, no timing-
 
 ## Test Conventions
 
-- Unit tests (`CmsApi.UnitTests`) cover pure Core logic: event rules, ordering, validation, cursor, Basic header parsing, backoff
+- Unit tests (`CmsApi.Core.Tests`) cover pure Core logic: event rules, ordering, validation, cursor, Basic header parsing, backoff
 - Integration tests (`CmsApi.IntegrationTests`) go through HTTP with `WebApplicationFactory` against the compose Postgres test database. They run serially; Respawn resets the data before each test
 - Worker processing is triggered through the Orchestrator's `DrainInboxAsync()`, never by sleeping
 - Test data goes through Orchestrator helpers (`CreateUserAsync`, `PostBatchAsync`, `SeedEntityAsync`, …) — reuse them rather than writing a second pattern

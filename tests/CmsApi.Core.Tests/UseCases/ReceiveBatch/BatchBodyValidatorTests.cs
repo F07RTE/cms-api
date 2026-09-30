@@ -4,7 +4,7 @@ using CmsApi.Core.Exceptions;
 using CmsApi.Core.UseCases.ReceiveBatch;
 using FluentAssertions;
 
-namespace CmsApi.UnitTests.UseCases.ReceiveBatch;
+namespace CmsApi.Core.Tests.UseCases.ReceiveBatch;
 
 public sealed class BatchBodyValidatorTests
 {

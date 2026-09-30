@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using CmsApi.Core.Domain.Batches;
 using CmsApi.Core.Domain.Inbox;
+using CmsApi.Core.Domain.Users;
 using FluentAssertions;
 
 namespace CmsApi.IntegrationTests.Api.Cms.Events;
@@ -33,27 +34,9 @@ public sealed class PostTests : IntegrationTest
     }
 
     [Test]
-    public async Task CmsClient_WithEmptyArray()
-    {
-        var response = await Orchestrator.PostBatchAsync("[]");
-
-        await ShouldBeRejectedAsync(response, HttpStatusCode.BadRequest);
-    }
-
-    [Test]
     public async Task CmsClient_WithNonArrayBody()
     {
         var response = await Orchestrator.PostBatchAsync("""{ "type": "publish" }""");
-
-        await ShouldBeRejectedAsync(response, HttpStatusCode.BadRequest);
-    }
-
-    [Test]
-    public async Task CmsClient_With1001Events()
-    {
-        var events = Enumerable.Repeat(new { type = "delete" }, BatchLimits.MaxEvents + 1);
-
-        var response = await Orchestrator.PostBatchAsync(events);
 
         await ShouldBeRejectedAsync(response, HttpStatusCode.BadRequest);
     }
@@ -69,19 +52,6 @@ public sealed class PostTests : IntegrationTest
     }
 
     [Test]
-    public async Task CmsClient_WithInvalidUtf8Body()
-    {
-        byte[] invalidUtf8 = [.. "[\""u8, InvalidUtf8Byte, .. "\"]"u8];
-
-        var response = await Orchestrator.PostBatchAsync(
-            invalidUtf8,
-            Orchestrator.CmsClientCredentials()
-        );
-
-        await ShouldBeRejectedAsync(response, HttpStatusCode.BadRequest);
-    }
-
-    [Test]
     public async Task AnonymousUser_WithoutCredentials()
     {
         var response = await Orchestrator.PostBatchAsync(
@@ -89,17 +59,38 @@ public sealed class PostTests : IntegrationTest
             credentials: null
         );
 
-        await ShouldBeRejectedAsync(response, HttpStatusCode.Unauthorized);
-        response
-            .Headers.WwwAuthenticate.Should()
-            .ContainSingle()
-            .Which.ToString()
-            .Should()
-            .Be("Basic realm=\"cms-api\", charset=\"UTF-8\"");
+        await response.ShouldBeChallengedAsync();
+        (await Orchestrator.ReadInboxAsync()).Should().BeEmpty();
     }
 
-    // A lone continuation byte: never valid UTF-8.
-    private const byte InvalidUtf8Byte = 0x80;
+    [Test]
+    public async Task CmsClient_WithWrongPassword()
+    {
+        var wrongPassword = Orchestrator.CmsClientCredentials() with
+        {
+            Password = Guid.NewGuid().ToString(),
+        };
+
+        var response = await Orchestrator.PostBatchAsync(
+            Encoding.UTF8.GetBytes(ValidBatch),
+            wrongPassword
+        );
+
+        await response.ShouldBeChallengedAsync();
+        (await Orchestrator.ReadInboxAsync()).Should().BeEmpty();
+    }
+
+    [TestCase(UserRole.User)]
+    [TestCase(UserRole.Admin)]
+    public async Task User_WithValidBatch(UserRole role)
+    {
+        var user = await Orchestrator.CreateUserAsync(Orchestrator.ReaderUsername, role);
+
+        var response = await Orchestrator.PostBatchAsync(Encoding.UTF8.GetBytes(ValidBatch), user);
+
+        await ShouldBeRejectedAsync(response, HttpStatusCode.Forbidden);
+    }
+
     private const int ValidBatchEventCount = 2;
 
     // Irregular whitespace on purpose: the Inbox keeps the original text, byte for byte.

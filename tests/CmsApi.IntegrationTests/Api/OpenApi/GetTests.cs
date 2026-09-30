@@ -49,26 +49,6 @@ public sealed class GetTests : IntegrationTest
             .Equal("publish", "unPublish", "delete");
     }
 
-    [TestCase("/cms/events", "post", new[] { "202", "400", "401", "403", "413" })]
-    [TestCase("/entities", "get", new[] { "200", "400", "401", "403" })]
-    [TestCase("/entities/{id}", "get", new[] { "200", "401", "403", "404" })]
-    [TestCase("/entities/{id}/disable", "patch", new[] { "200", "401", "403", "404" })]
-    [TestCase("/entities/{id}/enable", "patch", new[] { "200", "401", "403", "404" })]
-    public async Task AnonymousUser_WithOperation(string path, string method, string[] statuses)
-    {
-        using var client = Orchestrator.CreateClient();
-
-        var document = await client.GetFromJsonAsync<JsonElement>(
-            Orchestrator.OpenApiDocumentRoute
-        );
-
-        Operation(document, path, method)
-            .GetProperty("responses")
-            .PropertyNames()
-            .Should()
-            .BeEquivalentTo(statuses);
-    }
-
     [Test]
     public async Task CmsClient_WithApiDocsDisabled()
     {

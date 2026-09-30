@@ -1,5 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
+using CmsApi.Core.Text;
 
 namespace CmsApi.Core.Domain.Auth;
 
@@ -9,11 +9,6 @@ public sealed record BasicCredentials(string Username, string Password)
 
     private const string SchemePrefix = Scheme + " ";
     private const char Separator = ':';
-
-    private static readonly UTF8Encoding StrictUtf8 = new(
-        encoderShouldEmitUTF8Identifier: false,
-        throwOnInvalidBytes: true
-    );
 
     /// <summary>Parses an <c>Authorization</c> header value. The password may contain colons.</summary>
     public static bool TryParse(
@@ -41,19 +36,9 @@ public sealed record BasicCredentials(string Username, string Password)
     private static string? TryDecode(string token)
     {
         var bytes = new byte[token.Length];
-        if (!Convert.TryFromBase64String(token, bytes, out var length))
-        {
-            return null;
-        }
-
-        try
-        {
-            return StrictUtf8.GetString(bytes, 0, length);
-        }
-        catch (DecoderFallbackException)
-        {
-            return null;
-        }
+        return Convert.TryFromBase64String(token, bytes, out var length)
+            ? StrictUtf8.TryDecode(bytes.AsSpan(0, length))
+            : null;
     }
 
     // Never print the password, e.g. in a log line or an assertion message.

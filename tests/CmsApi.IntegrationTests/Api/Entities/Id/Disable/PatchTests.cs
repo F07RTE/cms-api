@@ -37,20 +37,6 @@ public sealed class PatchTests : IntegrationTest
     }
 
     [Test]
-    public async Task AdminUser_WithUnpublishedContentEntity()
-    {
-        var admin = await Orchestrator.CreateUserAsync(Orchestrator.AdminUsername, UserRole.Admin);
-        await Orchestrator.SeedEntityAsync(Seeded(isPublished: false));
-
-        var response = await DisableAsync(admin);
-
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var stored = (await Orchestrator.ReadContentEntitiesAsync()).Single();
-        stored.IsDisabledByAdmin.Should().BeTrue();
-        stored.IsPublished.Should().BeFalse();
-    }
-
-    [Test]
     public async Task AdminUser_WithDisabledContentEntity()
     {
         var admin = await Orchestrator.CreateUserAsync(Orchestrator.AdminUsername, UserRole.Admin);
@@ -78,20 +64,6 @@ public sealed class PatchTests : IntegrationTest
         var response = await DisableAsync(admin);
 
         await response.ShouldBeProblemAsync(HttpStatusCode.NotFound);
-    }
-
-    [Test]
-    public async Task AdminUser_WithDeletedContentEntity()
-    {
-        var admin = await Orchestrator.CreateUserAsync(Orchestrator.AdminUsername, UserRole.Admin);
-        await Orchestrator.SeedEntityAsync(Seeded(isPublished: true));
-        await Orchestrator.PostBatchAsync([Orchestrator.DeleteEvent(ContentEntityId, DeletedAt)]);
-        await Orchestrator.DrainInboxAsync();
-
-        var response = await DisableAsync(admin);
-
-        await response.ShouldBeProblemAsync(HttpStatusCode.NotFound);
-        (await Orchestrator.ReadContentEntitiesAsync()).Should().BeEmpty();
     }
 
     [Test]

@@ -3,7 +3,7 @@ using CmsApi.Core.Domain.Users;
 
 namespace CmsApi.Core.Domain.ContentEntities;
 
-/// <summary>Reads the Content Entities a role may see, per <see cref="ContentEntityVisibility"/>.</summary>
+/// <summary>Reads the Content Entities a role may see: a User only Visible ones, an Admin all.</summary>
 public interface IContentEntityReadRepository
 {
     /// <summary>Null when the id is unknown, deleted or hidden from this role.</summary>

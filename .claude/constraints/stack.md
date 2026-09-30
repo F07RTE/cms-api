@@ -16,7 +16,7 @@
 - `src/CmsApi.Worker` — Worker Service host: the Inbox `BackgroundService` only; own process, own appsettings
 - `src/CmsApi.Core` — `Domain/` (concepts, event rules, validation, repository interfaces) and `UseCases/`
 - `src/CmsApi.Data` — EF Read/Write contexts, one repository per table, migrations
-- `tests/CmsApi.UnitTests`, `tests/CmsApi.IntegrationTests`
+- `tests/CmsApi.Core.Tests`, `tests/CmsApi.IntegrationTests`
 - `infra/` — compose and the Postgres init script
 
 ## Conventions

@@ -3,7 +3,7 @@ using CmsApi.Core.Domain.Events;
 using CmsApi.Core.Domain.Events.Rules;
 using FluentAssertions;
 
-namespace CmsApi.UnitTests.Domain.Events.Rules;
+namespace CmsApi.Core.Tests.Domain.Events.Rules;
 
 public sealed class EventRulesTests
 {

@@ -1,7 +1,7 @@
 using CmsApi.Core.UseCases.ProcessInbox;
 using FluentAssertions;
 
-namespace CmsApi.UnitTests.UseCases.ProcessInbox;
+namespace CmsApi.Core.Tests.UseCases.ProcessInbox;
 
 public sealed class RetryBackoffTests
 {

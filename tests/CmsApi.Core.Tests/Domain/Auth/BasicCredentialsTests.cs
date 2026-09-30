@@ -2,7 +2,7 @@ using System.Text;
 using CmsApi.Core.Domain.Auth;
 using FluentAssertions;
 
-namespace CmsApi.UnitTests.Domain.Auth;
+namespace CmsApi.Core.Tests.Domain.Auth;
 
 public sealed class BasicCredentialsTests
 {

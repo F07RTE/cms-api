@@ -2,6 +2,7 @@ using CmsApi.Core.Domain.ContentEntities;
 using CmsApi.Core.Domain.Events.Rules;
 using CmsApi.Data.EventLog;
 using CmsApi.Data.Tombstones;
+using Microsoft.EntityFrameworkCore;
 
 namespace CmsApi.Data.ContentEntities;
 
@@ -22,26 +23,30 @@ internal sealed class ContentEntityRepository(WriteDbContext context, TimeProvid
         await using var transaction = await context.Database.BeginTransactionAsync(
             cancellationToken
         );
-
-        var row = await context.LockContentEntityAsync(contentEntityId, cancellationToken);
-        var storedTombstone = await FindTombstoneAsync(contentEntityId, cancellationToken);
-        var decision = decide(row is null ? null : ToState(row), storedTombstone);
+        var row = await LockAsync(contentEntityId, cancellationToken);
+        var storedTombstone = await context.Tombstones.FindAsync(
+            [contentEntityId],
+            cancellationToken
+        );
+        var decision = decide(
+            row is null ? null : new(row.Version, row.Payload, row.IsPublished, row.LastEventAt),
+            storedTombstone is null ? null : new(storedTombstone.DeletedAt)
+        );
 
         var processedAt = timeProvider.GetUtcNow();
+        if (storedTombstone is null)
+        {
+            WriteFinal(row, contentEntityId, decision, processedAt);
+        }
 
-        WriteFinal(row, storedTombstone, contentEntityId, decision, processedAt);
         context.EventLog.AddRange(
             decision.DecidedEvents.Select(decided =>
                 EventLogEntries.Decided(batchId, decided, processedAt)
             )
         );
-
         await context.SaveChangesAsync(cancellationToken);
-
         await transaction.CommitAsync(cancellationToken);
-
         context.ChangeTracker.Clear();
-
         return decision;
     }
 
@@ -70,7 +75,7 @@ internal sealed class ContentEntityRepository(WriteDbContext context, TimeProvid
         await using var transaction = await context.Database.BeginTransactionAsync(
             cancellationToken
         );
-        var row = await context.LockContentEntityAsync(id, cancellationToken);
+        var row = await LockAsync(id, cancellationToken);
         if (row is not null && change(row))
         {
             await context.SaveChangesAsync(cancellationToken);
@@ -80,45 +85,38 @@ internal sealed class ContentEntityRepository(WriteDbContext context, TimeProvid
         return row is null ? null : StoredContentEntityMapping.ToStored(row);
     }
 
-    private async Task<TombstoneState?> FindTombstoneAsync(
-        string id,
-        CancellationToken cancellationToken
-    )
+    // Row-locks until the transaction ends, so the worker and an Admin PATCH never interleave.
+    private async Task<ContentEntity?> LockAsync(string id, CancellationToken cancellationToken)
     {
-        var tombstone = await context.Tombstones.FindAsync([id], cancellationToken);
-        return tombstone is null ? null : new TombstoneState(tombstone.DeletedAt);
+        var rows = await context
+            .ContentEntities.FromSql($"SELECT * FROM content_entities WHERE id = {id} FOR UPDATE")
+            .ToListAsync(cancellationToken);
+        return rows.SingleOrDefault();
     }
 
-    // An existing Tombstone is final: the group changed nothing.
     private void WriteFinal(
         ContentEntity? row,
-        TombstoneState? storedTombstone,
         string id,
         GroupDecision decision,
         DateTimeOffset processedAt
     )
     {
-        if (storedTombstone is not null)
+        if (decision.FinalTombstone is { } tombstone)
         {
-            return;
+            Delete(row, id, tombstone, processedAt);
         }
-
-        if (decision.FinalTombstone is null)
+        else if (decision.FinalState is { } state)
         {
-            Write(row, id, decision.FinalState);
-        }
-        else
-        {
-            Delete(row, id, decision.FinalTombstone, processedAt);
+            Upsert(row, id, state);
         }
     }
 
-    // Hard delete: the row goes, the Tombstone takes its place in the same transaction.
+    // Hard delete: the Tombstone takes the row's place.
     private void Delete(
         ContentEntity? row,
         string id,
-        TombstoneState newTombstone,
-        DateTimeOffset recordedAt
+        TombstoneState tombstone,
+        DateTimeOffset processedAt
     )
     {
         if (row is not null)
@@ -130,37 +128,24 @@ internal sealed class ContentEntityRepository(WriteDbContext context, TimeProvid
             new Tombstone
             {
                 Id = id,
-                DeletedAt = newTombstone.DeletedAt,
-                RecordedAt = recordedAt,
+                DeletedAt = tombstone.DeletedAt,
+                RecordedAt = processedAt,
             }
         );
     }
 
-    private void Write(ContentEntity? row, string id, ContentEntityState? state)
+    // Writes the CMS columns only: the admin columns are never touched by CMS Events.
+    private void Upsert(ContentEntity? row, string id, ContentEntityState state)
     {
-        if (state is null)
-        {
-            return;
-        }
-
         if (row is null)
         {
             row = new ContentEntity { Id = id, Payload = state.Payload };
             context.ContentEntities.Add(row);
         }
 
-        ApplyCmsColumns(row, state);
-    }
-
-    // The admin columns are never touched by CMS Events.
-    private static void ApplyCmsColumns(ContentEntity row, ContentEntityState state)
-    {
         row.Version = state.Version;
         row.Payload = state.Payload;
         row.IsPublished = state.IsPublished;
         row.LastEventAt = state.LastEventAt;
     }
-
-    private static ContentEntityState ToState(ContentEntity row) =>
-        new(row.Version, row.Payload, row.IsPublished, row.LastEventAt);
 }

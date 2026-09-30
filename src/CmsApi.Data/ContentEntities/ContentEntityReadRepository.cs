@@ -47,7 +47,12 @@ internal sealed class ContentEntityReadRepository(ReadDbContext reader)
         return ContentEntityPage.FromRowsWithLookahead(rows, request.Limit);
     }
 
-    // The filter is a constant per role, so each role's SQL matches its own list index.
+    // A User sees Visible ones only: published and not Disabled. A constant filter per role, so
+    // each role's SQL matches its own list index.
     private IQueryable<ContentEntity> VisibleTo(UserRole role) =>
-        reader.ContentEntities.Where(ContentEntityVisibility.VisibleTo<ContentEntity>(role));
+        role == UserRole.Admin
+            ? reader.ContentEntities
+            : reader.ContentEntities.Where(contentEntity =>
+                contentEntity.IsPublished && !contentEntity.IsDisabledByAdmin
+            );
 }

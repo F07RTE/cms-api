@@ -3,7 +3,7 @@ using System.Text;
 using CmsApi.Core.Domain.ContentEntities.Listing;
 using FluentAssertions;
 
-namespace CmsApi.UnitTests.Domain.ContentEntities.Listing;
+namespace CmsApi.Core.Tests.Domain.ContentEntities.Listing;
 
 public sealed class ContentEntityCursorTests
 {

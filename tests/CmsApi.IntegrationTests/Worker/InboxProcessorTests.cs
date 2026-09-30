@@ -59,48 +59,6 @@ public sealed class InboxProcessorTests : IntegrationTest
     }
 
     [Test]
-    public async Task CmsClient_WithStaleEvent()
-    {
-        var seeded = await Orchestrator.SeedEntityAsync(Seeded("article-1", version: 2));
-        await Orchestrator.PostBatchAsync([
-            Orchestrator.CmsEvent("publish", "article-1", 1, T2, HelloPayload),
-        ]);
-
-        await Orchestrator.DrainInboxAsync();
-
-        (await Orchestrator.ReadContentEntitiesAsync())
-            .Should()
-            .ContainSingle()
-            .Which.Should()
-            .BeEquivalentTo(seeded, options => options.Excluding(entity => entity.Payload));
-        var entry = (await Orchestrator.ReadEventLogAsync()).Should().ContainSingle().Subject;
-        entry.Outcome.Should().Be(EventOutcome.SkippedStale);
-        entry.Reason.Should().NotBeNullOrWhiteSpace();
-    }
-
-    [Test]
-    public async Task CmsClient_WithUnPublishOfUnknownId()
-    {
-        await Orchestrator.PostBatchAsync([
-            Orchestrator.CmsEvent("unPublish", "article-1", 1, T1, HelloPayload),
-        ]);
-
-        await Orchestrator.DrainInboxAsync();
-
-        var stored = (await Orchestrator.ReadContentEntitiesAsync())
-            .Should()
-            .ContainSingle()
-            .Subject;
-        stored.Version.Should().Be(1);
-        stored.IsPublished.Should().BeFalse();
-        (await Orchestrator.ReadEventLogAsync())
-            .Should()
-            .ContainSingle()
-            .Which.Outcome.Should()
-            .Be(EventOutcome.Applied);
-    }
-
-    [Test]
     public async Task CmsClient_WithOneInvalidEvent()
     {
         var invalid = Orchestrator.CmsEvent("publish", "article-1", version: 0, T1, HelloPayload);

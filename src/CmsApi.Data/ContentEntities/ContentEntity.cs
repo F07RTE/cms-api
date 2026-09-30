@@ -1,12 +1,10 @@
-using CmsApi.Core.Domain.ContentEntities;
-
 namespace CmsApi.Data.ContentEntities;
 
 /// <summary>
 /// A Content Entity row. The worker writes the CMS columns; an Admin writes the
 /// <c>*DisabledBy*</c> columns. <see cref="Payload"/> is raw JSON, stored as jsonb.
 /// </summary>
-public sealed class ContentEntity : IContentEntityFlags
+public sealed class ContentEntity
 {
     public required string Id { get; set; }
 

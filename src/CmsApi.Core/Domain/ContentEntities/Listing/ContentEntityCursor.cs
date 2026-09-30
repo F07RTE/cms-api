@@ -2,6 +2,7 @@ using System.Buffers.Text;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
+using CmsApi.Core.Text;
 
 namespace CmsApi.Core.Domain.ContentEntities.Listing;
 
@@ -13,11 +14,6 @@ public sealed record ContentEntityCursor(DateTimeOffset UpdatedAt, string Id)
 {
     // Ticks come first and never hold the separator, so the id may.
     private const char Separator = ':';
-
-    private static readonly UTF8Encoding StrictUtf8 = new(
-        encoderShouldEmitUTF8Identifier: false,
-        throwOnInvalidBytes: true
-    );
 
     public string Encode() =>
         Base64Url.EncodeToString(
@@ -46,22 +42,10 @@ public sealed record ContentEntityCursor(DateTimeOffset UpdatedAt, string Id)
         return true;
     }
 
-    private static string? TryDecodeContent(string? token)
-    {
-        if (token is null || !Base64Url.IsValid(token))
-        {
-            return null;
-        }
-
-        try
-        {
-            return StrictUtf8.GetString(Base64Url.DecodeFromChars(token));
-        }
-        catch (DecoderFallbackException)
-        {
-            return null;
-        }
-    }
+    private static string? TryDecodeContent(string? token) =>
+        token is not null && Base64Url.IsValid(token)
+            ? StrictUtf8.TryDecode(Base64Url.DecodeFromChars(token))
+            : null;
 
     private static DateTimeOffset? TryParseTicks(string text) =>
         long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var ticks)
