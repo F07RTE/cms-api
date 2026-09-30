@@ -18,8 +18,12 @@ The list of CMS Events delivered in one webhook call. Events in a batch are orde
 **Inbox**:
 Where a received Batch waits until it is processed. Receiving a Batch and processing it are separate steps.
 
+**Attempt**:
+One try at processing a Batch. A Batch that fails for infrastructure reasons is tried again later, up to a maximum number of Attempts.
+_Avoid_: Retry count, delivery (a redelivery of a Batch already Done is not an Attempt)
+
 **Dead Batch**:
-A Batch whose processing kept failing for infrastructure reasons and was given up on. It stays in the Inbox for a person to inspect; it is never retried automatically. Invalid CMS Events never make a Batch dead.
+A Batch whose processing failed on its last Attempt and was given up on. It stays in the Inbox for a person to inspect; it is never retried automatically. Invalid CMS Events never make a Batch dead.
 _Avoid_: Poison message, failed batch (Failed is an Event Outcome)
 
 **Tombstone**:

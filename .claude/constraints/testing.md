@@ -34,6 +34,8 @@ has to be edited whenever the status changes, and it duplicates the assertion be
 
 - **Tests mirror the source tree.** Integration tests mirror the routes
   (`Api/Cms/Events/PostTests.cs`, `Api/Entities/Id/GetTests.cs`, …); unit tests mirror the Core namespaces.
+  A use case with no route of its own (the Batch consumer, the end-to-end ingestion flow) lives in
+  `UseCases/`, named after the Core use case (`UseCases/ConsumeBatchTests.cs`).
   Do not create cross-cutting fixtures that gather one concern across many classes — someone checking
   whether a class is covered looks in that class's file, and a matrix elsewhere is invisible to them.
 - **Helpers and builders go below the tests**, after the last `[Test]`. The tests are the subject

@@ -16,6 +16,8 @@ public sealed class RecordedLogs : ILoggerProvider
             ),
         ];
 
+    public List<RecordedLog> All() => [.. logs];
+
     public void Clear() => logs.Clear();
 
     public ILogger CreateLogger(string categoryName) => new Recorder(logs);

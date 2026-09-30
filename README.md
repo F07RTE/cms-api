@@ -21,7 +21,7 @@ The commands are the same on macOS, Linux and Windows (PowerShell or cmd). They 
 
 ```sh
 dotnet tool restore        # once after cloning: run-script, dotnet-ef, CSharpier, Husky
-dotnet r services:up       # Postgres 17 in Docker, waits until it's healthy
+dotnet r services:up       # Postgres 17 and RabbitMQ in Docker, waits until they're healthy
 dotnet r migrations:up     # creates the schema and seeds the dev users
 ```
 
@@ -32,22 +32,19 @@ The first `services:up` runs `infra/postgres/init.sql`. It creates two databases
 - `cms_writer`, which owns the tables
 - `cms_reader`, which can only `SELECT`
 
-### Run both hosts
+### Run
 
-The API and the worker are separate processes. One command starts Postgres, applies migrations, builds, and runs both. Ctrl+C stops both:
+One process: the API also consumes the Batches it queues. The RabbitMQ URI carries credentials, so it comes from user-secrets (once per clone):
+
+```sh
+dotnet user-secrets set ConnectionStrings:RabbitMq amqp://cms:cms_local@localhost:5672 --project src/CmsApi
+```
+
+Then one command starts Postgres and RabbitMQ, applies migrations and runs the API on http://localhost:5290:
 
 ```sh
 dotnet r dev
 ```
-
-The script is POSIX `sh`. On Windows, run it from Git Bash with `dotnet r dev --script-shell bash`, or start each host in its own terminal:
-
-```sh
-dotnet run --project src/CmsApi          # API on http://localhost:5290
-dotnet run --project src/CmsApi.Worker   # processes the Inbox
-```
-
-Without the worker, `POST /cms/events` still answers 202, but nothing reaches `/entities`.
 
 ### Dev credentials
 
@@ -92,8 +89,8 @@ dotnet r lint:run     # format with CSharpier (CI runs lint:check)
 ```
 
 - Integration tests use the `cms_api_test` database. They migrate it once, and Respawn clears the data before each test.
-- They run the worker through `DrainInboxAsync()`, so no test waits on a timer.
-- `dotnet r services:down` stops Postgres. The data volume survives it.
+- The consumer is off in tests. They process Batches through `DrainInboxAsync()`, which drains the real queue, so no test waits on a timer.
+- `dotnet r services:down` stops Postgres and RabbitMQ. The data volumes survive it.
 
 ## Assumptions
 
@@ -112,24 +109,24 @@ dotnet r lint:run     # format with CSharpier (CI runs lint:check)
 
 ```
 src/
-  CmsApi/            HTTP host: controllers, DTOs, auth, errors
-  CmsApi.Worker/     Worker host: the Inbox loop
+  CmsApi/            the only host: controllers, DTOs, auth, errors; runs the Batch consumer
   CmsApi.Core/
     Domain/          one folder per concept: its types, rules and repository interface
-    UseCases/        ReceiveBatch, ProcessInbox, ProcessBatch
+    UseCases/        ReceiveBatch, ConsumeBatch, ProcessBatch
   CmsApi.Data/       one folder and one repository per table, EF contexts, migrations
+  CmsApi.Messaging/  RabbitMQ: topology, publisher, consumer
 tests/
   CmsApi.Core.Tests/        mirror Core
   CmsApi.IntegrationTests/  mirror the routes, plus the end-to-end flow
 ```
 
-Dependencies point inward: both hosts depend on Core, and Data implements Core's repository interfaces. The two hosts never reference each other; the `inbox` table is the only thing they share.
+Dependencies point inward: the host depends on Core, Data implements Core's repository interfaces, and Messaging implements Core's publisher and runs the consumer.
 
 | Use case | Delivered by | Core | Repository |
 | --- | --- | --- | --- |
 | Receive Batch (`POST /cms/events`) | API | `BatchReceiver` | `InboxRepository` |
-| Process Inbox (poll loop, Leader, retries) | Worker | `InboxProcessor` | `InboxRepository`, `PgLeaderLock` |
-| Process Batch (validate, decide, store) | Worker | `BatchProcessor` | `ContentEntityRepository`, `EventLogRepository` |
+| Consume Batch (skip if not Pending, retry or Dead) | API (consumer) | `BatchConsumer` | `InboxRepository` |
+| Process Batch (validate, decide, store) | API (consumer) | `BatchProcessor` | `ContentEntityRepository`, `EventLogRepository` |
 | List / Get Content Entities | API | none | `ContentEntityReadRepository` (Reader) |
 | Disable / Enable a Content Entity | API | none | `ContentEntityRepository` (Writer) |
 
@@ -137,7 +134,7 @@ Only use cases with logic of their own get a class in `UseCases/`. List, Get, Di
 
 ### Sync vs async ingestion
 
-`POST /cms/events` checks only the body's overall shape: at most 10 MB, a JSON array of 1–1000 events. It then stores the raw Batch in an **Inbox** table and returns 202. A separate worker process validates and applies each event later ([ADR 0001](docs/adr/0001-async-ingestion-via-inbox.md)).
+`POST /cms/events` checks only the body's overall shape: at most 10 MB, a JSON array of 1–1000 events. It then stores the raw Batch in an **Inbox** table, publishes `{ batchId }` to RabbitMQ and returns 202 once the broker confirms. A consumer inside the API host validates and applies each event later ([ADR 0001](docs/adr/0001-async-ingestion-via-inbox.md), [ADR 0004](docs/adr/0004-deliver-batches-through-rabbitmq.md)). If the publish fails, the CMS gets a 500 and retries.
 
 **The alternative:** process the Batch inside the request and answer 200 after commit. That's simpler, and the CMS would get each event's outcome in the response. We rejected it because:
 
@@ -145,7 +142,7 @@ Only use cases with logic of their own get a class in `UseCases/`. List, Get, Di
 - parallel webhook calls would race on the same Content Entity
 - a traffic spike would land straight on the database
 
-**Why async is safe: the outcome doesn't depend on order.** Batches are processed roughly in arrival order, but correctness doesn't rely on it:
+**Why async is safe: the outcome doesn't depend on order.** Consumers on several replicas lose arrival order between Batches, and correctness doesn't rely on it:
 
 - the version decides whether an event is stale
 - equal versions tie-break on the stored `last_event_at`
@@ -155,12 +152,14 @@ So any processing order leaves the same stored state. Only the Event Log outcome
 
 **The cost:** the CMS gets no per-event feedback. Outcomes are in the `event_log` table and the logs. Since the CMS won't retry after a 202, we own the retries:
 
-- a Batch whose processing throws is retried with exponential backoff, capped at 5 minutes
-- after 5 attempts it becomes a **Dead Batch**, which a person inspects in the Inbox
+- a Batch whose processing throws is rejected into `cms.batches.retry`, which holds it for `Messaging:RetryDelay` and routes it back
+- the attempt is read from the broker's `x-death` count; after `Messaging:MaxAttempts` the Batch becomes a **Dead Batch** with its `last_error`, is logged as an error and acked. A person inspects it in the Inbox
 
 An invalid event never fails its Batch. It's logged as `Failed`, stored in full, and the rest of the Batch still applies.
 
-**One worker:** a Postgres advisory lock makes one worker the **Leader**. A second replica idles until it can take over. When a worker becomes Leader, it returns every Orphaned Batch (claimed by a worker that crashed or was stopped) to the Inbox.
+**Any number of consumers:** each API replica consumes one Batch at a time (prefetch 1). A crash mid-Batch leaves the message unacked, so the broker redelivers it. A message whose Batch is no longer `Pending` is acked and skipped.
+
+**Changing `RetryDelay`:** the retry queue's TTL is fixed when the queue is declared. Changing `RetryDelay` after `cms.batches.retry` exists fails the startup declare (`PRECONDITION_FAILED`); delete the queue first.
 
 ### Payloads are stored verbatim
 
@@ -170,7 +169,7 @@ The payload is stored exactly as the CMS sent it. There is no HTML sanitising or
 - Sanitising is the renderer's job; it knows the output context (HTML, attribute, JSON…).
 - Our responses are JSON, and the serialiser encodes them.
 
-The payload is stored as `jsonb`. `jsonb` keeps the **meaning** of the JSON, not its bytes: key order and whitespace may change, and duplicate keys collapse. So a GET returns an equivalent object, not the same bytes. The Inbox keeps the raw body as `text`, byte-exact, until the worker validates it. Duplicate keys and `\u0000`, which `jsonb` can't hold, become per-event `Failed` outcomes instead of errors.
+The payload is stored as `jsonb`. `jsonb` keeps the **meaning** of the JSON, not its bytes: key order and whitespace may change, and duplicate keys collapse. So a GET returns an equivalent object, not the same bytes. The Inbox keeps the raw body as `text`, byte-exact, until the consumer validates it. Duplicate keys and `\u0000`, which `jsonb` can't hold, become per-event `Failed` outcomes instead of errors.
 
 ### Auth and TLS
 
@@ -185,7 +184,7 @@ The payload is stored as `jsonb`. `jsonb` keeps the **meaning** of the JSON, not
 ### Replica-ready reads
 
 - There are two connection strings, `Reader` and `Writer`. In compose, both point at the same Postgres, as different roles. The reader role can't write, as on a real replica.
-- `GET /entities*` and the login lookup use the Reader. Ingestion, PATCH and the whole worker use the Writer.
+- `GET /entities*` and the login lookup use the Reader. Ingestion, PATCH and the whole consumer use the Writer.
 - **Moving reads to a replica is a config change:** point `Reader` at the replica.
 - **Eventual consistency:** under a replica, a GET may briefly lag a write. The PATCH response is built from the Writer, so an Admin sees their own change straight away.
 
@@ -200,14 +199,14 @@ The payload is stored as `jsonb`. `jsonb` keeps the **meaning** of the JSON, not
 
 ### Row lock, not `xmin`
 
-The worker and an Admin's PATCH can touch the same Content Entity. Each write takes a row lock (`SELECT … FOR UPDATE`) inside its transaction. The two write different columns:
+The consumer and an Admin's PATCH can touch the same Content Entity. Each write takes a row lock (`SELECT … FOR UPDATE`) inside its transaction. The two write different columns:
 
-- the worker writes the CMS data
+- the consumer writes the CMS data
 - PATCH writes the admin override
 
 So the lock only serialises them; neither ever overwrites the other.
 
-**Why not `xmin`:** optimistic concurrency on `xmin` would make every admin disable bump the row version and fail the worker's concurrent write, a conflict that isn't real. Retrying it buys nothing the lock doesn't already give.
+**Why not `xmin`:** optimistic concurrency on `xmin` would make every admin disable bump the row version and fail the consumer's concurrent write, a conflict that isn't real. Retrying it buys nothing the lock doesn't already give.
 
 ## Out of scope
 
@@ -218,5 +217,5 @@ So the lock only serialises them; neither ever overwrites the other.
 
 ## Future work
 
-- **More than one worker.** Claim Batches with `FOR UPDATE SKIP LOCKED` instead of a leader lock. The row lock and primary keys already keep concurrent groups correct. What would be lost is arrival order between Batches, which the version rules don't depend on.
+- **Azure Service Bus.** It would replace RabbitMQ behind the Messaging project; Core only sees `IBatchPublisher` and the Consume Batch use case.
 - **Hosts organised by use case.** Give the API one folder and one controller per use case (`ReceiveBatch/`, `ListContentEntities/`, …), so a use case has the same name in the host, Core and the tests. Today's host keeps ASP.NET's `Controllers/` and `Dtos/`, which is small enough to read at a glance.

@@ -1,4 +1,5 @@
 using CmsApi.Data;
+using CmsApi.Messaging.Consuming;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -30,7 +31,16 @@ public static partial class Orchestrator
             builder
                 .UseEnvironment(TestingEnvironment)
                 .ConfigureLogging(logging => logging.AddProvider(Logs))
-                .ConfigureTestServices(services => services.AddSingleton<TimeProvider>(Clock))
+                .ConfigureTestServices(services =>
+                {
+                    services.AddSingleton<TimeProvider>(Clock);
+                    // Tests drain the queue themselves, so the consumer never races them.
+                    services.Remove(
+                        services.Single(service =>
+                            service.ImplementationType == typeof(BatchQueueConsumer)
+                        )
+                    );
+                })
         );
 
     private static Respawner? respawner;
@@ -38,6 +48,8 @@ public static partial class Orchestrator
     public static AsyncServiceScope CreateScope() => Factory.Services.CreateAsyncScope();
 
     public static List<RecordedLog> ReadLogsForBatch(long batchId) => Logs.ForBatch(batchId);
+
+    public static List<RecordedLog> ReadLogs() => Logs.All();
 
     public static void ClearLogs() => Logs.Clear();
 

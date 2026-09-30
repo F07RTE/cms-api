@@ -10,4 +10,6 @@ public sealed class MessagingOptions
     public string ConnectionString { get; set; } = string.Empty;
 
     public TimeSpan RetryDelay { get; set; } = TimeSpan.FromSeconds(30);
+
+    public int MaxAttempts { get; set; } = 5;
 }

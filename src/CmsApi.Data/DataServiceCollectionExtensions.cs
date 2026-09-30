@@ -20,14 +20,18 @@ public static class DataServiceCollectionExtensions
         IConfiguration configuration
     )
     {
-        services.AddCmsWriteData(configuration);
         services
             .AddOptions<ConnectionStringOptions>()
             .Configure(options =>
+            {
                 options.Reader =
-                    configuration.GetConnectionString(nameof(options.Reader)) ?? string.Empty
-            )
-            .ValidateRequired(options => options.Reader, nameof(ConnectionStringOptions.Reader));
+                    configuration.GetConnectionString(nameof(options.Reader)) ?? string.Empty;
+                options.Writer =
+                    configuration.GetConnectionString(nameof(options.Writer)) ?? string.Empty;
+            })
+            .ValidateRequired(options => options.Reader, nameof(ConnectionStringOptions.Reader))
+            .ValidateRequired(options => options.Writer, nameof(ConnectionStringOptions.Writer))
+            .ValidateOnStart();
         services.AddDbContext<ReadDbContext>(
             (provider, options) =>
                 options
@@ -35,33 +39,14 @@ public static class DataServiceCollectionExtensions
                     .UseSnakeCaseNamingConvention()
                     .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking)
         );
-        services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IContentEntityReadRepository, ContentEntityReadRepository>();
-        return services;
-    }
-
-    // The worker registers the writer only: it never reads from a replica.
-    public static IServiceCollection AddCmsWriteData(
-        this IServiceCollection services,
-        IConfiguration configuration
-    )
-    {
-        services
-            .AddOptions<ConnectionStringOptions>()
-            .Configure(options =>
-                options.Writer =
-                    configuration.GetConnectionString(nameof(options.Writer)) ?? string.Empty
-            )
-            .ValidateRequired(options => options.Writer, nameof(ConnectionStringOptions.Writer))
-            .ValidateOnStart();
         // The factory also registers WriteDbContext as scoped, for everything that uses it per scope.
         services.AddDbContextFactory<WriteDbContext>(
             (provider, options) =>
                 options.UseNpgsql(ConnectionStrings(provider).Writer).UseSnakeCaseNamingConvention()
         );
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IContentEntityReadRepository, ContentEntityReadRepository>();
         services.AddScoped<IInboxRepository, InboxRepository>();
-        // Transient: each worker gets its own session, and with it its own claim on the lock.
-        services.AddTransient<ILeaderLock, PgLeaderLock>();
         services.AddScoped<IEventLogRepository, EventLogRepository>();
         services.AddScoped<IContentEntityRepository, ContentEntityRepository>();
         return services;

@@ -14,10 +14,6 @@ public sealed class InboxBatch
 
     public InboxStatus Status { get; set; }
 
-    public int Attempts { get; set; }
-
-    public DateTimeOffset NextAttemptAt { get; set; }
-
     public string? LastError { get; set; }
 
     public DateTimeOffset? ProcessedAt { get; set; }

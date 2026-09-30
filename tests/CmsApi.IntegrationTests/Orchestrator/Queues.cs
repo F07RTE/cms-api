@@ -1,7 +1,10 @@
+using CmsApi.Core.Domain.Batches;
 using CmsApi.Messaging;
+using CmsApi.Messaging.Consuming;
 using CmsApi.Messaging.Publishing;
 using CmsApi.Messaging.Topology;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 
 namespace CmsApi.IntegrationTests;
@@ -10,17 +13,45 @@ public static partial class Orchestrator
 {
     public static async Task PurgeQueuesAsync()
     {
-        await using var channel = await CreateChannelAsync();
+        await using var channel = await CreateChannelAsync(Factory.Services);
         await channel.QueuePurgeAsync(BatchQueues.Main);
         await channel.QueuePurgeAsync(BatchQueues.Retry);
     }
 
-    // Acks what it reads, so the messages leave the queue.
-    public static async Task<List<long>> TakeQueuedBatchIdsAsync()
+    // A redelivery: the message the API published for this Batch, sent again.
+    public static Task PublishBatchMessageAsync(long batchId) =>
+        Factory
+            .Services.GetRequiredService<IBatchPublisher>()
+            .PublishAsync(batchId, CancellationToken.None);
+
+    public static int MaxAttempts =>
+        Factory.Services.GetRequiredService<IOptions<MessagingOptions>>().Value.MaxAttempts;
+
+    // A retry: the message as the broker routes it back after rejecting it deathCount times.
+    public static async Task PublishRetriedBatchMessageAsync(long batchId, long deathCount)
     {
-        await using var channel = await CreateChannelAsync();
+        await using var channel = await CreateChannelAsync(Factory.Services);
+        await channel.BasicPublishAsync(
+            BatchQueues.DefaultExchange,
+            BatchQueues.Main,
+            mandatory: false,
+            new BasicProperties { Headers = DeathHeaders(deathCount) },
+            new BatchMessage(batchId).Serialize()
+        );
+    }
+
+    public static async Task PublishRawMessageAsync(byte[] body)
+    {
+        await using var channel = await CreateChannelAsync(Factory.Services);
+        await channel.BasicPublishAsync(BatchQueues.DefaultExchange, BatchQueues.Main, body);
+    }
+
+    // Acks what it reads, so the messages leave the queue.
+    public static async Task<List<long>> TakeQueuedBatchIdsAsync(string queue = BatchQueues.Main)
+    {
+        await using var channel = await CreateChannelAsync(Factory.Services);
         List<long> batchIds = [];
-        while (await channel.BasicGetAsync(BatchQueues.Main, autoAck: true) is { } message)
+        while (await channel.BasicGetAsync(queue, autoAck: true) is { } message)
         {
             batchIds.Add(BatchMessage.Deserialize(message.Body).BatchId);
         }
@@ -28,10 +59,23 @@ public static partial class Orchestrator
         return batchIds;
     }
 
-    private static async Task<IChannel> CreateChannelAsync()
+    private static async Task<IChannel> CreateChannelAsync(IServiceProvider services)
     {
-        var broker = Factory.Services.GetRequiredService<BrokerConnection>();
+        var broker = services.GetRequiredService<BrokerConnection>();
         var connection = await broker.ConnectAsync(CancellationToken.None);
         return await connection.CreateChannelAsync();
     }
+
+    private static Dictionary<string, object?> DeathHeaders(long deathCount) =>
+        new()
+        {
+            [DeathHeader.Name] = new List<object?>
+            {
+                new Dictionary<string, object?>
+                {
+                    [DeathHeader.Queue] = BatchQueues.Main,
+                    [DeathHeader.Count] = deathCount,
+                },
+            },
+        };
 }

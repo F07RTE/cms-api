@@ -1,5 +1,5 @@
+using CmsApi.Core.UseCases.ConsumeBatch;
 using CmsApi.Core.UseCases.ProcessBatch;
-using CmsApi.Core.UseCases.ProcessInbox;
 using CmsApi.Core.UseCases.ReceiveBatch;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -14,7 +14,7 @@ public static class CoreServiceCollectionExtensions
         services.AddScoped<BatchReceiver>();
         services.AddScoped<BatchOutcomeLog>();
         services.AddScoped<IBatchProcessor, BatchProcessor>();
-        services.AddScoped<InboxProcessor>();
+        services.AddScoped<BatchConsumer>();
         return services;
     }
 }

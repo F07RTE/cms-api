@@ -1,4 +1,5 @@
 using CmsApi.Core.Domain.Batches;
+using CmsApi.Messaging.Consuming;
 using CmsApi.Messaging.Publishing;
 using CmsApi.Messaging.Topology;
 using Microsoft.Extensions.Configuration;
@@ -31,10 +32,16 @@ public static class MessagingServiceCollectionExtensions
                 options => options.RetryDelay > TimeSpan.Zero,
                 $"{MessagingOptions.SectionName}:{nameof(MessagingOptions.RetryDelay)} must be positive."
             )
+            .Validate(
+                options => options.MaxAttempts > 0,
+                $"{MessagingOptions.SectionName}:{nameof(MessagingOptions.MaxAttempts)} must be positive."
+            )
             .ValidateOnStart();
         services.AddSingleton<BrokerConnection>();
         services.AddSingleton<IBatchPublisher, BatchPublisher>();
         services.AddHostedService<BatchTopology>();
+        services.AddSingleton<BatchDeliveryHandler>();
+        services.AddHostedService<BatchQueueConsumer>();
         return services;
     }
 

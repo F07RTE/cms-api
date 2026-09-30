@@ -1,9 +1,12 @@
 using CmsApi.Core.Domain.Inbox;
 using CmsApi.Core.UseCases.ProcessBatch;
-using CmsApi.Core.UseCases.ProcessInbox;
 using CmsApi.Data.Inbox;
+using CmsApi.Messaging.Consuming;
+using CmsApi.Messaging.Topology;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using RabbitMQ.Client;
 
 namespace CmsApi.IntegrationTests;
 
@@ -12,27 +15,15 @@ public static partial class Orchestrator
     public static Task<List<InboxBatch>> ReadInboxAsync() =>
         WithWriterAsync(context => context.InboxBatches.ToListAsync());
 
-    public static Task DrainInboxAsync() =>
-        DrainInboxAsync(provider => provider.GetRequiredService<InboxProcessor>());
+    public static Task DrainInboxAsync() => DrainInboxAsync(Factory.Services);
 
     public static Task DrainInboxAsync(IBatchProcessor batchProcessor) =>
-        DrainInboxAsync(provider =>
-            ActivatorUtilities.CreateInstance<InboxProcessor>(provider, batchProcessor)
+        DrainInboxWithAsync(services => services.AddScoped(_ => batchProcessor));
+
+    public static Task DrainInboxAsync(IBatchProcessor batchProcessor, IInboxRepository inbox) =>
+        DrainInboxWithAsync(services =>
+            services.AddScoped(_ => batchProcessor).AddScoped(_ => inbox)
         );
-
-    public static async Task OrphanNextBatchAsync()
-    {
-        await using var scope = CreateScope();
-        var inbox = scope.ServiceProvider.GetRequiredService<IInboxRepository>();
-        await inbox.ClaimNextAsync(CancellationToken.None);
-    }
-
-    public static async Task RecoverOrphansAsync()
-    {
-        await using var scope = CreateScope();
-        var inbox = scope.ServiceProvider.GetRequiredService<IInboxRepository>();
-        await inbox.RecoverOrphansAsync(CancellationToken.None);
-    }
 
     public static Task RequeueBatchesAsync() =>
         WithWriterAsync(context =>
@@ -41,20 +32,30 @@ public static partial class Orchestrator
             )
         );
 
-    public static ILeaderLock CreateLeaderLock() =>
-        Factory.Services.GetRequiredService<ILeaderLock>();
-
-    // A scope per Batch, as the worker has.
-    private static async Task DrainInboxAsync(
-        Func<IServiceProvider, InboxProcessor> createProcessor
-    )
+    private static async Task DrainInboxWithAsync(Action<IServiceCollection> replaceServices)
     {
-        bool processed;
-        do
+        await using var factory = Factory.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(replaceServices)
+        );
+        await DrainInboxAsync(factory.Services);
+    }
+
+    // Runs the consumer's handler on every message BasicGet finds, as the consumer would.
+    private static async Task DrainInboxAsync(IServiceProvider services)
+    {
+        var handler = services.GetRequiredService<BatchDeliveryHandler>();
+        await using var channel = await CreateChannelAsync(services);
+        while (await channel.BasicGetAsync(BatchQueues.Main, autoAck: false) is { } message)
         {
-            await using var scope = CreateScope();
-            var processor = createProcessor(scope.ServiceProvider);
-            processed = await processor.ProcessNextBatchAsync(CancellationToken.None);
-        } while (processed);
+            await handler.HandleAsync(
+                new BatchDelivery(
+                    channel,
+                    message.DeliveryTag,
+                    message.BasicProperties,
+                    message.Body
+                ),
+                CancellationToken.None
+            );
+        }
     }
 }

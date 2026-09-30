@@ -23,9 +23,7 @@ public sealed class PostTests : IntegrationTest
         stored.Body.Should().Be(ValidBatch);
         stored.EventCount.Should().Be(ValidBatchEventCount);
         stored.Status.Should().Be(InboxStatus.Pending);
-        stored.Attempts.Should().Be(0);
         stored.ReceivedAt.Should().Be(Orchestrator.Clock.GetUtcNow());
-        stored.NextAttemptAt.Should().Be(stored.ReceivedAt);
 
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         body.GetProperty("batchId").GetInt64().Should().Be(stored.Id);

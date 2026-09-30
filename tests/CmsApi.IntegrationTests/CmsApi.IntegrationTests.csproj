@@ -8,6 +8,5 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\CmsApi\CmsApi.csproj" />
     <ProjectReference Include="..\..\src\CmsApi.Data\CmsApi.Data.csproj" />
-    <ProjectReference Include="..\..\src\CmsApi.Worker\CmsApi.Worker.csproj" />
   </ItemGroup>
 </Project>

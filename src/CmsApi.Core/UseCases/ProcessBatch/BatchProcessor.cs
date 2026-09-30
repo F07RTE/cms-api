@@ -15,7 +15,7 @@ public sealed class BatchProcessor(
     BatchOutcomeLog outcomeLog
 ) : IBatchProcessor
 {
-    public async Task ProcessAsync(ClaimedBatch batch, CancellationToken cancellationToken)
+    public async Task ProcessAsync(PendingBatch batch, CancellationToken cancellationToken)
     {
         var validations = Validate(batch.Body);
         List<FailedCmsEvent> failedEvents = [.. validations.OfType<FailedCmsEvent>()];

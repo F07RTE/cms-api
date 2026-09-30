@@ -3,16 +3,16 @@ using System.Text.Json.Nodes;
 using CmsApi.Core.Domain.Events;
 using CmsApi.Core.Domain.Inbox;
 using CmsApi.Core.UseCases.ProcessBatch;
-using CmsApi.Core.UseCases.ProcessInbox;
 using CmsApi.Data.ContentEntities;
 using CmsApi.Data.EventLog;
 using CmsApi.Data.Tombstones;
+using CmsApi.Messaging.Topology;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 
-namespace CmsApi.IntegrationTests.Worker;
+namespace CmsApi.IntegrationTests.UseCases;
 
-public sealed class InboxProcessorTests : IntegrationTest
+public sealed class ConsumeBatchTests : IntegrationTest
 {
     [Test]
     public async Task CmsClient_WithPublishEvent()
@@ -35,7 +35,6 @@ public sealed class InboxProcessorTests : IntegrationTest
 
         var batch = (await Orchestrator.ReadInboxAsync()).Should().ContainSingle().Subject;
         batch.Status.Should().Be(InboxStatus.Done);
-        batch.Attempts.Should().Be(1);
         batch.ProcessedAt.Should().Be(Orchestrator.Clock.GetUtcNow());
 
         var entry = (await Orchestrator.ReadEventLogAsync()).Should().ContainSingle().Subject;
@@ -56,6 +55,7 @@ public sealed class InboxProcessorTests : IntegrationTest
                     ProcessedAt = Orchestrator.Clock.GetUtcNow(),
                 }
             );
+        (await Orchestrator.TakeQueuedBatchIdsAsync()).Should().BeEmpty();
     }
 
     [Test]
@@ -138,36 +138,6 @@ public sealed class InboxProcessorTests : IntegrationTest
     }
 
     [Test]
-    public async Task CmsClient_WithReplayedBatchHoldingInvalidEvent()
-    {
-        await Orchestrator.PostBatchAsync([
-            Orchestrator.CmsEvent("publish", "article-1", version: 0, T1, HelloPayload),
-            Orchestrator.CmsEvent("publish", "article-2", 1, T1, HelloPayload),
-        ]);
-        await Orchestrator.DrainInboxAsync();
-        await Orchestrator.RequeueBatchesAsync();
-
-        await Orchestrator.DrainInboxAsync();
-
-        var eventLog = await Orchestrator.ReadEventLogAsync();
-        eventLog.Where(entry => entry.Outcome == EventOutcome.Failed).Should().ContainSingle();
-        eventLog
-            .Where(entry => entry.ContentEntityId == "article-2")
-            .Select(entry => entry.Outcome)
-            .Should()
-            .Equal(EventOutcome.Applied, EventOutcome.SkippedDuplicate);
-
-        var batchId = (await Orchestrator.ReadInboxAsync()).Single().Id;
-        Orchestrator
-            .ReadLogsForBatch(batchId)
-            .Where(log => log.Level == LogLevel.Warning)
-            .Should()
-            .ContainSingle()
-            .Which.Properties.Should()
-            .Contain(RecordedLog.Outcome, EventOutcome.Failed);
-    }
-
-    [Test]
     public async Task CmsClient_WithDeleteThenLaterPublish()
     {
         await Orchestrator.SeedEntityAsync(Seeded("article-1", version: 1));
@@ -203,63 +173,120 @@ public sealed class InboxProcessorTests : IntegrationTest
     }
 
     [Test]
-    public async Task CmsClient_WithBatchOrphanedByCrashedWorker()
+    public async Task CmsClient_WithReplayedBatchHoldingInvalidEvent()
+    {
+        await Orchestrator.PostBatchAsync([
+            Orchestrator.CmsEvent("publish", "article-1", version: 0, T1, HelloPayload),
+            Orchestrator.CmsEvent("publish", "article-2", 1, T1, HelloPayload),
+        ]);
+        await Orchestrator.DrainInboxAsync();
+        var batchId = (await Orchestrator.ReadInboxAsync()).Single().Id;
+        await Orchestrator.RequeueBatchesAsync();
+        await Orchestrator.PublishBatchMessageAsync(batchId);
+
+        await Orchestrator.DrainInboxAsync();
+
+        var eventLog = await Orchestrator.ReadEventLogAsync();
+        eventLog.Where(entry => entry.Outcome == EventOutcome.Failed).Should().ContainSingle();
+        eventLog
+            .Where(entry => entry.ContentEntityId == "article-2")
+            .Select(entry => entry.Outcome)
+            .Should()
+            .Equal(EventOutcome.Applied, EventOutcome.SkippedDuplicate);
+        Orchestrator
+            .ReadLogsForBatch(batchId)
+            .Where(log => log.Level == LogLevel.Warning)
+            .Should()
+            .ContainSingle()
+            .Which.Properties.Should()
+            .Contain(RecordedLog.Outcome, EventOutcome.Failed);
+    }
+
+    [Test]
+    public async Task CmsClient_WithBatchRedeliveredAfterDone()
     {
         await Orchestrator.PostBatchAsync([
             Orchestrator.CmsEvent("publish", "article-1", 1, T1, HelloPayload),
         ]);
-        await Orchestrator.OrphanNextBatchAsync();
+        await Orchestrator.DrainInboxAsync();
+        var done = (await Orchestrator.ReadInboxAsync()).Single();
+        Orchestrator.Clock.Advance(TimeSpan.FromMinutes(1));
+        await Orchestrator.PublishBatchMessageAsync(done.Id);
 
-        await Orchestrator.RecoverOrphansAsync();
         await Orchestrator.DrainInboxAsync();
 
         var batch = (await Orchestrator.ReadInboxAsync()).Should().ContainSingle().Subject;
         batch.Status.Should().Be(InboxStatus.Done);
-        batch.Attempts.Should().Be(2);
-        (await Orchestrator.ReadContentEntitiesAsync())
-            .Should()
-            .ContainSingle()
-            .Which.Id.Should()
-            .Be("article-1");
+        batch.ProcessedAt.Should().Be(done.ProcessedAt);
+        (await Orchestrator.ReadEventLogAsync()).Should().ContainSingle();
+        (await Orchestrator.TakeQueuedBatchIdsAsync()).Should().BeEmpty();
+        (await Orchestrator.TakeQueuedBatchIdsAsync(BatchQueues.Retry)).Should().BeEmpty();
     }
 
     [Test]
-    public async Task CmsClient_WithBatchFailingOnce()
+    public async Task CmsClient_WithBatchFailingBeforeLastAttempt()
     {
-        await Orchestrator.PostBatchAsync([
-            Orchestrator.CmsEvent("publish", "article-1", 1, T1, HelloPayload),
-        ]);
+        var batchId = await PostBatchRedeliveredAsync(deathCount: Orchestrator.MaxAttempts - 2);
 
         await Orchestrator.DrainInboxAsync(new ThrowingBatchProcessor());
 
         var batch = (await Orchestrator.ReadInboxAsync()).Should().ContainSingle().Subject;
         batch.Status.Should().Be(InboxStatus.Pending);
-        batch.Attempts.Should().Be(1);
-        batch
-            .NextAttemptAt.Should()
-            .Be(Orchestrator.Clock.GetUtcNow() + RetryBackoff.After(batch.Attempts));
-        batch.LastError.Should().Contain(ThrowingBatchProcessor.Failure);
+        batch.LastError.Should().BeNull();
         (await Orchestrator.ReadContentEntitiesAsync()).Should().BeEmpty();
+        (await Orchestrator.TakeQueuedBatchIdsAsync()).Should().BeEmpty();
+        (await Orchestrator.TakeQueuedBatchIdsAsync(BatchQueues.Retry)).Should().Equal(batchId);
     }
 
     [Test]
-    public async Task CmsClient_WithBatchFailingEveryAttempt()
+    public async Task CmsClient_WithBatchFailingOnLastAttempt()
     {
-        await Orchestrator.PostBatchAsync([
-            Orchestrator.CmsEvent("publish", "article-1", 1, T1, HelloPayload),
-        ]);
+        var batchId = await PostBatchRedeliveredAsync(deathCount: Orchestrator.MaxAttempts - 1);
 
-        // One more round than MaxAttempts: a Dead Batch is never claimed again.
-        for (var round = 0; round <= InboxProcessor.MaxAttempts; round++)
-        {
-            await Orchestrator.DrainInboxAsync(new ThrowingBatchProcessor());
-            Orchestrator.Clock.Advance(RetryBackoff.MaxDelay);
-        }
+        await Orchestrator.DrainInboxAsync(new ThrowingBatchProcessor());
 
         var batch = (await Orchestrator.ReadInboxAsync()).Should().ContainSingle().Subject;
         batch.Status.Should().Be(InboxStatus.Dead);
-        batch.Attempts.Should().Be(InboxProcessor.MaxAttempts);
-        batch.LastError.Should().Contain(ThrowingBatchProcessor.Failure);
+        batch.LastError.Should().Be(ThrowingBatchProcessor.LastError);
+        batch.ProcessedAt.Should().BeNull();
+        (await Orchestrator.ReadContentEntitiesAsync()).Should().BeEmpty();
+        (await Orchestrator.TakeQueuedBatchIdsAsync()).Should().BeEmpty();
+        (await Orchestrator.TakeQueuedBatchIdsAsync(BatchQueues.Retry)).Should().BeEmpty();
+        Orchestrator
+            .ReadLogsForBatch(batchId)
+            .Should()
+            .ContainSingle(log => log.Level == LogLevel.Error);
+    }
+
+    [Test]
+    public async Task CmsClient_WithLastAttemptFailingToMarkDead()
+    {
+        var batchId = await PostBatchRedeliveredAsync(deathCount: Orchestrator.MaxAttempts - 1);
+
+        await Orchestrator.DrainInboxAsync(
+            new ThrowingBatchProcessor(),
+            new InboxFailingToMarkDead()
+        );
+
+        (await Orchestrator.ReadInboxAsync())
+            .Should()
+            .ContainSingle()
+            .Which.Status.Should()
+            .Be(InboxStatus.Pending);
+        (await Orchestrator.TakeQueuedBatchIdsAsync()).Should().BeEmpty();
+        (await Orchestrator.TakeQueuedBatchIdsAsync(BatchQueues.Retry)).Should().Equal(batchId);
+    }
+
+    [Test]
+    public async Task Publisher_WithUnreadableMessage()
+    {
+        await Orchestrator.PublishRawMessageAsync("not json"u8.ToArray());
+
+        await Orchestrator.DrainInboxAsync();
+
+        (await Orchestrator.TakeQueuedBatchIdsAsync()).Should().BeEmpty();
+        (await Orchestrator.TakeQueuedBatchIdsAsync(BatchQueues.Retry)).Should().BeEmpty();
+        Orchestrator.ReadLogs().Should().ContainSingle(log => log.Level == LogLevel.Error);
     }
 
     private static readonly DateTimeOffset T1 = new(2026, 9, 29, 11, 0, 0, TimeSpan.Zero);
@@ -282,11 +309,50 @@ public sealed class InboxProcessorTests : IntegrationTest
     private static void ShouldBeSameJson(string actual, string expected) =>
         JsonNode.DeepEquals(JsonNode.Parse(actual), JsonNode.Parse(expected)).Should().BeTrue();
 
+    // Swaps the message the API published for one the broker has dead-lettered deathCount times.
+    private static async Task<long> PostBatchRedeliveredAsync(long deathCount)
+    {
+        await Orchestrator.PostBatchAsync([
+            Orchestrator.CmsEvent("publish", "article-1", 1, T1, HelloPayload),
+        ]);
+        var batchId = (await Orchestrator.TakeQueuedBatchIdsAsync()).Single();
+        await Orchestrator.PublishRetriedBatchMessageAsync(batchId, deathCount);
+        return batchId;
+    }
+
     private sealed class ThrowingBatchProcessor : IBatchProcessor
     {
-        public const string Failure = "database unreachable";
+        private const string Failure = "database unreachable";
 
-        public Task ProcessAsync(ClaimedBatch batch, CancellationToken cancellationToken) =>
+        public static readonly string LastError = $"{nameof(InvalidOperationException)}: {Failure}";
+
+        public Task ProcessAsync(PendingBatch batch, CancellationToken cancellationToken) =>
             throw new InvalidOperationException(Failure);
+    }
+
+    // Finds the Batch, then loses the database before it can mark it Dead.
+    private sealed class InboxFailingToMarkDead : IInboxRepository
+    {
+        private const string Failure = "database unreachable";
+
+        public Task<PendingBatch?> FindPendingAsync(
+            long batchId,
+            CancellationToken cancellationToken
+        ) => Task.FromResult<PendingBatch?>(new PendingBatch(batchId, Body: "[]"));
+
+        public Task MarkDeadAsync(
+            long batchId,
+            string lastError,
+            CancellationToken cancellationToken
+        ) => throw new InvalidOperationException(Failure);
+
+        public Task<EnqueuedBatch> EnqueueAsync(
+            string body,
+            int eventCount,
+            CancellationToken cancellationToken
+        ) => throw new NotSupportedException();
+
+        public Task CompleteAsync(long batchId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 }
