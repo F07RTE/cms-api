@@ -33,11 +33,11 @@ The API runs on http://localhost:5290. It's one process: the API also consumes t
 
 ### Dev credentials
 
-| Caller     | Username         | Password                               | Can call                          |
-| ---------- | ---------------- | -------------------------------------- | --------------------------------- |
-| CMS Client | `cms-dev-client` | see `src/CmsApi/appsettings.Development.json` | `POST /cms/events`             |
-| Admin      | `admin`          | `admin123`                             | every `/entities` route           |
-| User       | `reader`         | `reader123`                            | `GET /entities`, `GET /entities/{id}` |
+| Caller     | Username         | Password                                      | Can call                              |
+| ---------- | ---------------- | --------------------------------------------- | ------------------------------------- |
+| CMS Client | `cms-dev-client` | see `src/CmsApi/appsettings.Development.json` | `POST /cms/events`                    |
+| Admin      | `admin`          | `admin123`                                    | every `/entities` route               |
+| User       | `reader`         | `reader123`                                   | `GET /entities`, `GET /entities/{id}` |
 
 - `admin` and `reader` are seeded by the migrations, so they exist in every environment the migrations run in. Rotate or delete them before any real deployment.
 - Outside Development, the CMS credential and the connection strings come from user-secrets or environment variables (`CmsCredentials__Username`, `CmsCredentials__Password`, `ConnectionStrings__Reader`, `ConnectionStrings__Writer`, `ConnectionStrings__RabbitMq`). The base `appsettings.json` leaves the credential empty, so the API refuses to start without one.
@@ -55,7 +55,47 @@ curl -u reader:reader123 http://localhost:5290/entities
 
 On Windows PowerShell, call `curl.exe`, not the `curl` alias.
 
-For more, [`scenarios/`](scenarios/) has `.http` files that walk each event rule.
+### Scenarios
+
+[`scenarios/`](scenarios/) has `.http` files that walk each event rule against the running API. Each file is one scenario; run its requests top to bottom.
+
+**Setup**
+
+1. Start everything: `dotnet r dev`.
+2. Create `scenarios/http-client.private.env.json` (gitignored) with the dev CMS password from `src/CmsApi/appsettings.Development.json`:
+
+   ```json
+   { "dev": { "cmsPassword": "<CmsCredentials:Password>" } }
+   ```
+
+3. Pick the `dev` environment in your client:
+   - **Rider / Visual Studio:** reads `http-client.env.json` and the private file natively.
+   - **VS Code:** use [httpYac](https://marketplace.visualstudio.com/items?itemName=anweber.vscode-httpyac), which reads the same files. REST Client does not.
+
+**Running**
+
+- A `POST` is applied asynchronously by the consumer. Wait a moment before the next `GET`.
+- Ids are never reused after a delete, so each file has `@run = 1` at the top. Bump it before running a file again.
+
+| Scenario | Shows |
+| --- | --- |
+| [Happy path](scenarios/01-happy-path.http) | publish, update, read, list |
+| [Out of order](scenarios/02-out-of-order.http) | timestamp orders within a Batch; version decides across Batches |
+| [Unpublish](scenarios/03-unpublish.http) | equal-version unPublish applies; a late retry is a Duplicate |
+| [Deletes](scenarios/04-deletes.http) | Tombstones are final; delete of an unknown id |
+| [Duplicates](scenarios/05-duplicates.http) | replayed Batch; same version twice in one Batch |
+| [Invalid events](scenarios/06-invalid-events.http) | Failed events don't fail the Batch; 400 / 401 / 403 on the body |
+| [Admin disable](scenarios/07-admin-disable.http) | Disabled survives CMS Events; only an Admin clears it |
+| [Unpublish of an unseen version](scenarios/08-unpublish-unseen-version.http) | unPublish of a version never published stores its fields |
+
+**Seeing the Event Outcomes**
+
+The webhook answers 202 only. Outcomes are in the API logs and the `event_log` table:
+
+```sh
+docker compose -f infra/compose.yaml exec postgres psql -U postgres -d cms_api -c \
+  "select batch_id, entity_id, event_type, version, outcome, reason from event_log order by id desc limit 20;"
+```
 
 ### API docs
 
@@ -87,7 +127,6 @@ dotnet r lint:run     # format with CSharpier (CI runs lint:check)
 - An `unPublish` can carry a version we never saw published (the CMS edited v1 into v2, then unpublished v2). A higher version applies, so v2's fields are stored, not Visible.
 - There is one CMS, so its credential lives in configuration rather than a table.
 - Users are created by a person with database access. There is no user management API.
-- TLS ends at a reverse proxy in front of the API.
 
 ## Design notes
 
@@ -108,13 +147,13 @@ tests/
 
 Dependencies point inward: the host depends on Core, Data implements Core's repository interfaces, and Messaging implements Core's publisher and runs the consumer.
 
-| Use case | Core | Repository |
-| --- | --- | --- |
-| Receive Batch (`POST /cms/events`) | `BatchReceiver` | `InboxRepository` |
-| Consume Batch (skip, retry or Dead) | `BatchConsumer` | `InboxRepository` |
+| Use case                                | Core             | Repository                                      |
+| --------------------------------------- | ---------------- | ----------------------------------------------- |
+| Receive Batch (`POST /cms/events`)      | `BatchReceiver`  | `InboxRepository`                               |
+| Consume Batch (skip, retry or Dead)     | `BatchConsumer`  | `InboxRepository`                               |
 | Process Batch (validate, decide, store) | `BatchProcessor` | `ContentEntityRepository`, `EventLogRepository` |
-| List / Get Content Entities | none | `ContentEntityReadRepository` (Reader) |
-| Disable / Enable a Content Entity | none | `ContentEntityRepository` (Writer) |
+| List / Get Content Entities             | none             | `ContentEntityReadRepository` (Reader)          |
+| Disable / Enable a Content Entity       | none             | `ContentEntityRepository` (Writer)              |
 
 Only use cases with logic of their own get a class in `UseCases/`. List, Get, Disable and Enable are a single repository call, so their controllers call the repository directly; a class that only forwards the call would add a layer and no behaviour.
 
@@ -133,8 +172,6 @@ Only use cases with logic of their own get a class in `UseCases/`. List, Get, Di
 - the version decides whether an event is stale
 - equal versions tie-break on the stored `last_event_at`
 - a delete leaves a **Tombstone** that's final whatever the timestamp ([ADR 0002](docs/adr/0002-deletes-are-final.md))
-
-Only the Event Log outcomes differ. So a crash mid-Batch is harmless: the broker redelivers it, and the groups already committed come back as `SkippedDuplicate` or `SkippedDeleted`. A Batch no longer `Pending` is acked and skipped.
 
 **Retries and Dead Batches.** The CMS won't retry after a 202, so we do. Outcomes are in the `event_log` table and the logs.
 
@@ -160,8 +197,8 @@ The payload is stored as `jsonb`. `jsonb` keeps the **meaning** of the JSON, not
 - **User passwords** are hashed with Argon2id ([ADR 0003](docs/adr/0003-argon2id-with-credential-cache.md)). An unknown username is still checked against a dummy hash, so timing doesn't reveal which usernames exist.
 - **Credential cache:** Argon2id is deliberately expensive, and Basic Auth verifies on every request. So a successful check is cached for 60 s, keyed by a SHA-256 of the `Authorization` header. The trade-off: a changed or removed password keeps working for up to 60 s.
 - **Hardening left for later:**
-  - Hash the CMS secret. Today it's a GUID held in plaintext in the secret store, compared in constant time.
-  - Shorten or drop the credential cache once user management exists.
+    - Hash the CMS secret. Today it's a GUID held in plaintext in the secret store, compared in constant time.
+    - Shorten or drop the credential cache once user management exists.
 
 ### Replica-ready reads
 
@@ -178,27 +215,3 @@ The payload is stored as `jsonb`. `jsonb` keeps the **meaning** of the JSON, not
 - **No total count:** a count would scan every Visible row on every call.
 - **Cursor drift:** a Content Entity updated during a walk jumps to the front, so the walk can miss it. A client that needs a full sync restarts from the first page.
 - A tampered cursor that still parses is harmless: the visibility filter still applies.
-
-### Row lock, not `xmin`
-
-The consumer and an Admin's PATCH can touch the same Content Entity. Each write takes a row lock (`SELECT … FOR UPDATE`) inside its transaction. The two write different columns:
-
-- the consumer writes the CMS data
-- PATCH writes the admin override
-
-So the lock only serialises them; neither ever overwrites the other.
-
-**Why not `xmin`:** optimistic concurrency on `xmin` would make every admin disable bump the row version and fail the consumer's concurrent write, a conflict that isn't real. Retrying it buys nothing the lock doesn't already give.
-
-## Out of scope
-
-- **Inbox cleanup.** `Done` Batches accumulate, as do `Pending` rows whose publish failed (the CMS retried them as new Batches). A scheduled delete, or partitioning by `received_at`, would handle it.
-- **Replaying Dead Batches.** A person inspects them in the Inbox; there's no tool to set one back to `Pending` and publish it again.
-- **Event Log retention and querying.** The table grows forever, and no endpoint reads it.
-- **User management.** No endpoints to create, change or disable Users. Admins disable Content Entities, never Users.
-- **Status/health endpoint.** There is no way to ask for a Batch's progress. The 202 returns a `batchId` for correlating with logs and the database.
-
-## Future work
-
-- **Azure Service Bus.** It would replace RabbitMQ behind the Messaging project; Core only sees `IBatchPublisher` and the Consume Batch use case.
-- **Hosts organised by use case.** Give the API one folder and one controller per use case (`ReceiveBatch/`, `ListContentEntities/`, …), so a use case has the same name in the host, Core and the tests. Today's host keeps ASP.NET's `Controllers/` and `Dtos/`, which is small enough to read at a glance.
