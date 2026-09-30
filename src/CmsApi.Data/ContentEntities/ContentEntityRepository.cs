@@ -77,7 +77,7 @@ internal sealed class ContentEntityRepository(WriteDbContext context, TimeProvid
         }
 
         await transaction.CommitAsync(cancellationToken);
-        return row is null ? null : ToStored(row);
+        return row is null ? null : StoredContentEntityMapping.ToStored(row);
     }
 
     private async Task<TombstoneState?> FindTombstoneAsync(
@@ -163,16 +163,4 @@ internal sealed class ContentEntityRepository(WriteDbContext context, TimeProvid
 
     private static ContentEntityState ToState(ContentEntity row) =>
         new(row.Version, row.Payload, row.IsPublished, row.LastEventAt);
-
-    private static StoredContentEntity ToStored(ContentEntity row) =>
-        new(
-            row.Id,
-            row.Version,
-            row.Payload,
-            row.LastEventAt,
-            row.IsPublished,
-            row.IsDisabledByAdmin,
-            row.DisabledAt,
-            row.DisabledBy
-        );
 }

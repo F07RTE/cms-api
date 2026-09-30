@@ -1,4 +1,3 @@
-using System.Linq.Expressions;
 using CmsApi.Core.Domain.ContentEntities;
 using CmsApi.Core.Domain.EventLog;
 using CmsApi.Core.Domain.Inbox;
@@ -38,6 +37,7 @@ public static class DataServiceCollectionExtensions
                     .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking)
         );
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IContentEntityReadRepository, ContentEntityReadRepository>();
         return services;
     }
 
@@ -65,29 +65,6 @@ public static class DataServiceCollectionExtensions
         services.AddTransient<ILeaderLock, PgLeaderLock>();
         services.AddScoped<IEventLogRepository, EventLogRepository>();
         services.AddScoped<IContentEntityRepository, ContentEntityRepository>();
-        return services;
-    }
-
-    /// <summary>
-    /// Registers the <see cref="IContentEntityReadRepository"/> for <paramref name="role"/>, keyed by it,
-    /// projecting to <typeparamref name="T"/>. Its queries are compiled once, here.
-    /// </summary>
-    public static IServiceCollection AddContentEntityReadRepository<T>(
-        this IServiceCollection services,
-        UserRole role,
-        Expression<Func<ContentEntity, T>> projection
-    )
-        where T : class, IProjectedContentEntity
-    {
-        var queries = new ContentEntityQueries<T>(role, projection);
-        services.AddKeyedScoped<IContentEntityReadRepository>(
-            role,
-            (provider, _) =>
-                new ContentEntityReadRepository<T>(
-                    provider.GetRequiredService<ReadDbContext>(),
-                    queries
-                )
-        );
         return services;
     }
 

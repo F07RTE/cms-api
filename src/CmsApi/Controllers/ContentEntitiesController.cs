@@ -10,19 +10,19 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CmsApi.Controllers;
 
-/// <summary>Content Entities for Users and Admins. Reads from the reader.</summary>
+/// <summary>Content Entities for Users and Admins, each in its role's shape. Reads from the reader.</summary>
 [ApiController]
 [Route("entities")]
 [Authorize(Policy = AuthNames.ApiUserPolicy)]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
 [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-public sealed class ContentEntitiesController(
-    [FromKeyedServices(UserRole.User)] IContentEntityReadRepository userReader,
-    [FromKeyedServices(UserRole.Admin)] IContentEntityReadRepository adminReader
-) : ControllerBase
+public sealed class ContentEntitiesController(IContentEntityReadRepository contentEntities)
+    : ControllerBase
 {
     [HttpGet]
-    [ProducesResponseType<ContentEntityPageResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ContentEntityPageResponse<ContentEntityResponse>>(
+        StatusCodes.Status200OK
+    )]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ListAsync(
         [FromQuery] ContentEntityPageQueryString query,
@@ -30,8 +30,22 @@ public sealed class ContentEntitiesController(
     )
     {
         var request = ContentEntityPageRequest.Parse(query.Limit, query.Cursor);
-        var page = await ReaderForUser().ReadPageAsync(request, cancellationToken);
-        return Ok(new ContentEntityPageResponse(page.Items, page.Next?.Encode()));
+        var role = User.UserRole();
+        var page = await contentEntities.ReadPageAsync(request, role, cancellationToken);
+        var nextCursor = page.Next?.Encode();
+        return role == UserRole.Admin
+            ? Ok(
+                new ContentEntityPageResponse<AdminContentEntityResponse>(
+                    [.. page.Items.Select(AdminContentEntityResponse.From)],
+                    nextCursor
+                )
+            )
+            : Ok(
+                new ContentEntityPageResponse<ContentEntityResponse>(
+                    [.. page.Items.Select(ContentEntityResponse.From)],
+                    nextCursor
+                )
+            );
     }
 
     // Hidden, unknown and deleted all answer 404, so a User can't tell which one it was.
@@ -40,12 +54,15 @@ public sealed class ContentEntitiesController(
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAsync(string id, CancellationToken cancellationToken)
     {
-        var contentEntity = await ReaderForUser().FindAsync(id, cancellationToken);
-        return contentEntity is null
-            ? NotFound(ContentEntityProblems.NotFound())
-            : Ok(contentEntity);
-    }
+        var role = User.UserRole();
+        var contentEntity = await contentEntities.FindAsync(id, role, cancellationToken);
+        if (contentEntity is null)
+        {
+            return NotFound(ContentEntityProblems.NotFound());
+        }
 
-    private IContentEntityReadRepository ReaderForUser() =>
-        User.UserRole() == UserRole.Admin ? adminReader : userReader;
+        return role == UserRole.Admin
+            ? Ok(AdminContentEntityResponse.From(contentEntity))
+            : Ok(ContentEntityResponse.From(contentEntity));
+    }
 }

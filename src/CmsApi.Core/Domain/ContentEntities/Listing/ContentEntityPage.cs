@@ -2,7 +2,7 @@ namespace CmsApi.Core.Domain.ContentEntities.Listing;
 
 /// <summary>One page of Content Entities. <see cref="Next"/> is null on the last page.</summary>
 public sealed record ContentEntityPage(
-    IReadOnlyList<IProjectedContentEntity> Items,
+    IReadOnlyList<StoredContentEntity> Items,
     ContentEntityCursor? Next
 )
 {
@@ -11,7 +11,7 @@ public sealed record ContentEntityPage(
     /// only tells that another page exists.
     /// </summary>
     public static ContentEntityPage FromRowsWithLookahead(
-        IReadOnlyList<IProjectedContentEntity> rows,
+        IReadOnlyList<StoredContentEntity> rows,
         int limit
     )
     {
@@ -22,6 +22,6 @@ public sealed record ContentEntityPage(
 
         var items = rows.Take(limit).ToList();
         var last = items[^1];
-        return new ContentEntityPage(items, new ContentEntityCursor(last.UpdatedAt, last.Id));
+        return new ContentEntityPage(items, new ContentEntityCursor(last.LastEventAt, last.Id));
     }
 }

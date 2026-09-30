@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using CmsApi.Auth.AuthenticateCmsClient;
 using CmsApi.Core.Domain.Auth;
-using CmsApi.Core.Domain.Events;
 using CmsApi.Core.Domain.Inbox;
 using CmsApi.Core.Domain.Users;
 using CmsApi.Core.UseCases.ProcessBatch;
