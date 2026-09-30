@@ -1,4 +1,3 @@
-using CmsApi.Core.Domain.Events;
 using CmsApi.Core.Domain.Events.Validation;
 
 namespace CmsApi.Core.Domain.EventLog;

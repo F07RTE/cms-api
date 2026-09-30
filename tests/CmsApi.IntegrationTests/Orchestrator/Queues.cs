@@ -18,7 +18,6 @@ public static partial class Orchestrator
         await channel.QueuePurgeAsync(BatchQueues.Retry);
     }
 
-    // A redelivery: the message the API published for this Batch, sent again.
     public static Task PublishBatchMessageAsync(long batchId) =>
         Factory
             .Services.GetRequiredService<IBatchPublisher>()
@@ -27,7 +26,6 @@ public static partial class Orchestrator
     public static int MaxAttempts =>
         Factory.Services.GetRequiredService<IOptions<MessagingOptions>>().Value.MaxAttempts;
 
-    // A retry: the message as the broker routes it back after rejecting it deathCount times.
     public static async Task PublishRetriedBatchMessageAsync(long batchId, long deathCount)
     {
         await using var channel = await CreateChannelAsync(Factory.Services);

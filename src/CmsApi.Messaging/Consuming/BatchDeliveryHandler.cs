@@ -7,7 +7,6 @@ using Microsoft.Extensions.Options;
 
 namespace CmsApi.Messaging.Consuming;
 
-// Shared by the consumer and the test drain: maps a delivery to Core and Core's result to ack or reject.
 public sealed class BatchDeliveryHandler(
     IServiceScopeFactory scopeFactory,
     IOptions<MessagingOptions> options,

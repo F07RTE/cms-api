@@ -1,7 +1,7 @@
 # Clean Code
 
 - No magic strings or numbers — use constants or configuration values
-- Method names describe what they do: `ClaimNextAsync()` not `GetData()`
+- Method names describe what they do: `FindPendingAsync()` not `GetData()`
 - Methods are short (~20 lines max) — extract when longer
 - No commented-out code left in the codebase
 - No summary comments (`///`): names say what the code does. A `//` comment only explains why, when the code can't

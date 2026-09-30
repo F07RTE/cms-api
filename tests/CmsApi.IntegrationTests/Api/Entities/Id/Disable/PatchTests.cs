@@ -92,7 +92,6 @@ public sealed class PatchTests : IntegrationTest
         0,
         TimeSpan.Zero
     );
-    private static readonly DateTimeOffset DeletedAt = new(2026, 9, 29, 11, 30, 0, TimeSpan.Zero);
 
     private static ContentEntity Seeded(bool isPublished) =>
         Orchestrator.NewContentEntity(ContentEntityId, LastEventAt, isPublished);

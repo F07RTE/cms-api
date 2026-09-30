@@ -1,6 +1,5 @@
 using CmsApi.Core.Domain.Batches;
 using CmsApi.Core.Domain.Inbox;
-using CmsApi.Core.Exceptions;
 
 namespace CmsApi.Core.UseCases.ReceiveBatch;
 

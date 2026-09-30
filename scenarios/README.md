@@ -17,7 +17,7 @@
 
 ## Running
 
-- The worker polls every second. Wait a moment after a `POST` before the next `GET`.
+- A `POST` is applied asynchronously by the consumer. Wait a moment before the next `GET`.
 - Ids are never reused after a delete, so each file has `@run = 1` at the top. Bump it before running a file again.
 
 ## Scenarios
@@ -34,7 +34,7 @@
 
 ## Seeing the Event Outcomes
 
-The webhook answers 202 only. Outcomes are in the worker logs and the `event_log` table:
+The webhook answers 202 only. Outcomes are in the API logs and the `event_log` table:
 
 ```sh
 docker compose -f infra/compose.yaml exec postgres psql -U postgres -d cms_api -c \

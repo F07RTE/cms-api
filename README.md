@@ -55,7 +55,7 @@ dotnet r dev
 | User       | `reader`         | `reader123`                            | `GET /entities`, `GET /entities/{id}` |
 
 - `admin` and `reader` are seeded by the migrations, so they exist in every environment the migrations run in. Rotate or delete them before any real deployment.
-- Outside Development, the CMS credential and the connection strings come from user-secrets or environment variables (`CmsCredentials__Username`, `CmsCredentials__Password`, `ConnectionStrings__Reader`, `ConnectionStrings__Writer`). The base `appsettings.json` leaves the credential empty, so the API refuses to start without one.
+- Outside Development, the CMS credential and the connection strings come from user-secrets or environment variables (`CmsCredentials__Username`, `CmsCredentials__Password`, `ConnectionStrings__Reader`, `ConnectionStrings__Writer`, `ConnectionStrings__RabbitMq`). The base `appsettings.json` leaves the credential empty, so the API refuses to start without one.
 
 ### Try it
 
@@ -117,49 +117,45 @@ src/
   CmsApi.Messaging/  RabbitMQ: topology, publisher, consumer
 tests/
   CmsApi.Core.Tests/        mirror Core
-  CmsApi.IntegrationTests/  mirror the routes, plus the end-to-end flow
+  CmsApi.IntegrationTests/  mirror the routes; UseCases/ for the consumer and the end-to-end flow
 ```
 
 Dependencies point inward: the host depends on Core, Data implements Core's repository interfaces, and Messaging implements Core's publisher and runs the consumer.
 
-| Use case | Delivered by | Core | Repository |
-| --- | --- | --- | --- |
-| Receive Batch (`POST /cms/events`) | API | `BatchReceiver` | `InboxRepository` |
-| Consume Batch (skip if not Pending, retry or Dead) | API (consumer) | `BatchConsumer` | `InboxRepository` |
-| Process Batch (validate, decide, store) | API (consumer) | `BatchProcessor` | `ContentEntityRepository`, `EventLogRepository` |
-| List / Get Content Entities | API | none | `ContentEntityReadRepository` (Reader) |
-| Disable / Enable a Content Entity | API | none | `ContentEntityRepository` (Writer) |
+| Use case | Core | Repository |
+| --- | --- | --- |
+| Receive Batch (`POST /cms/events`) | `BatchReceiver` | `InboxRepository` |
+| Consume Batch (skip, retry or Dead) | `BatchConsumer` | `InboxRepository` |
+| Process Batch (validate, decide, store) | `BatchProcessor` | `ContentEntityRepository`, `EventLogRepository` |
+| List / Get Content Entities | none | `ContentEntityReadRepository` (Reader) |
+| Disable / Enable a Content Entity | none | `ContentEntityRepository` (Writer) |
 
 Only use cases with logic of their own get a class in `UseCases/`. List, Get, Disable and Enable are a single repository call, so their controllers call the repository directly; a class that only forwards the call would add a layer and no behaviour.
 
-### Sync vs async ingestion
+### Async ingestion
 
-`POST /cms/events` checks only the body's overall shape: at most 10 MB, a JSON array of 1–1000 events. It then stores the raw Batch in an **Inbox** table, publishes `{ batchId }` to RabbitMQ and returns 202 once the broker confirms. A consumer inside the API host validates and applies each event later ([ADR 0001](docs/adr/0001-async-ingestion-via-inbox.md), [ADR 0004](docs/adr/0004-deliver-batches-through-rabbitmq.md)). If the publish fails, the CMS gets a 500 and retries.
+`POST /cms/events` checks only the body's shape: at most 10 MB, a JSON array of 1–1000 events. It stores the raw Batch in the **Inbox** table, publishes `{ batchId }` to RabbitMQ and answers 202 once the broker confirms. A failed publish answers 500, and the CMS retries. A consumer inside the API host applies the events later ([ADR 0001](docs/adr/0001-async-ingestion-via-inbox.md), [ADR 0004](docs/adr/0004-deliver-batches-through-rabbitmq.md)).
 
-**The alternative:** process the Batch inside the request and answer 200 after commit. That's simpler, and the CMS would get each event's outcome in the response. We rejected it because:
+**Why not process inside the request:** it's simpler, and the CMS would get each event's outcome. But:
 
 - a large Batch could outlast the CMS's timeout
 - parallel webhook calls would race on the same Content Entity
 - a traffic spike would land straight on the database
 
-**Why async is safe: the outcome doesn't depend on order.** Consumers on several replicas lose arrival order between Batches, and correctness doesn't rely on it:
+**Order doesn't matter.** Replicas consume in parallel, so arrival order between Batches is lost. The stored state doesn't depend on it:
 
 - the version decides whether an event is stale
 - equal versions tie-break on the stored `last_event_at`
 - a delete leaves a **Tombstone** that's final whatever the timestamp ([ADR 0002](docs/adr/0002-deletes-are-final.md))
 
-So any processing order leaves the same stored state. Only the Event Log outcomes differ. That's why a Batch waiting for a retry doesn't block the Batches behind it, and why replaying a Batch after a crash is harmless: the groups it already committed come back as `SkippedDuplicate` or `SkippedDeleted`.
+Only the Event Log outcomes differ. So a crash mid-Batch is harmless: the broker redelivers it, and the groups already committed come back as `SkippedDuplicate` or `SkippedDeleted`. A Batch no longer `Pending` is acked and skipped.
 
-**The cost:** the CMS gets no per-event feedback. Outcomes are in the `event_log` table and the logs. Since the CMS won't retry after a 202, we own the retries:
+**Retries and Dead Batches.** The CMS won't retry after a 202, so we do. Outcomes are in the `event_log` table and the logs.
 
-- a Batch whose processing throws is rejected into `cms.batches.retry`, which holds it for `Messaging:RetryDelay` and routes it back
-- the attempt is read from the broker's `x-death` count; after `Messaging:MaxAttempts` the Batch becomes a **Dead Batch** with its `last_error`, is logged as an error and acked. A person inspects it in the Inbox
-
-An invalid event never fails its Batch. It's logged as `Failed`, stored in full, and the rest of the Batch still applies.
-
-**Any number of consumers:** each API replica consumes one Batch at a time (prefetch 1). A crash mid-Batch leaves the message unacked, so the broker redelivers it. A message whose Batch is no longer `Pending` is acked and skipped.
-
-**Changing `RetryDelay`:** the retry queue's TTL is fixed when the queue is declared. Changing `RetryDelay` after `cms.batches.retry` exists fails the startup declare (`PRECONDITION_FAILED`); delete the queue first.
+- An invalid event never fails its Batch. It's logged as `Failed`, stored in full, and the rest of the Batch applies.
+- A Batch whose processing throws is rejected into `cms.batches.retry`, which routes it back after `Messaging:RetryDelay`.
+- The attempt comes from the broker's `x-death` count. After `Messaging:MaxAttempts`, the Batch becomes a **Dead Batch**: marked with its `last_error`, logged as an error, and left in the Inbox for a person to inspect.
+- The retry delay is fixed on the queue when it's declared. Changing `RetryDelay` after `cms.batches.retry` exists fails startup with `PRECONDITION_FAILED`; delete the queue first.
 
 ### Payloads are stored verbatim
 

@@ -9,7 +9,7 @@ public sealed class BatchRequestBodyTransformer : IOpenApiOperationTransformer
 {
     private const string Description =
         "A Batch: a JSON array of 1-1000 CMS Events, at most 10 MB. Answers 202 once stored; "
-        + "the worker applies it later.";
+        + "it is applied later.";
 
     private const string ExampleBatch = """
         [

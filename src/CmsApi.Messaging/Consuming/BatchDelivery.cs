@@ -3,7 +3,6 @@ using RabbitMQ.Client;
 
 namespace CmsApi.Messaging.Consuming;
 
-// One message taken from cms.batches, pushed to the consumer or pulled by the test drain.
 public sealed record BatchDelivery(
     IChannel Channel,
     ulong DeliveryTag,

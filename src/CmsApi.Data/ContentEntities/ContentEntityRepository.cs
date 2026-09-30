@@ -81,7 +81,7 @@ internal sealed class ContentEntityRepository(WriteDbContext context, TimeProvid
         return row is null ? null : StoredContentEntityMapping.ToStored(row);
     }
 
-    // Row-locks until the transaction ends, so the worker and an Admin PATCH never interleave.
+    // Row-locks until the transaction ends, so the consumer and an Admin PATCH never interleave.
     private async Task<ContentEntity?> LockAsync(string id, CancellationToken cancellationToken)
     {
         var rows = await context

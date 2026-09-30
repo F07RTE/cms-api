@@ -3,7 +3,6 @@ using RabbitMQ.Client;
 
 namespace CmsApi.Messaging.Consuming;
 
-// The broker's record of every time a message was dead-lettered: one entry per queue and reason.
 public static class DeathHeader
 {
     public const string Name = "x-death";

@@ -309,7 +309,6 @@ public sealed class ConsumeBatchTests : IntegrationTest
     private static void ShouldBeSameJson(string actual, string expected) =>
         JsonNode.DeepEquals(JsonNode.Parse(actual), JsonNode.Parse(expected)).Should().BeTrue();
 
-    // Swaps the message the API published for one the broker has dead-lettered deathCount times.
     private static async Task<long> PostBatchRedeliveredAsync(long deathCount)
     {
         await Orchestrator.PostBatchAsync([

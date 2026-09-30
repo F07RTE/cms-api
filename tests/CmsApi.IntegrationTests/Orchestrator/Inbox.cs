@@ -6,7 +6,6 @@ using CmsApi.Messaging.Topology;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using RabbitMQ.Client;
 
 namespace CmsApi.IntegrationTests;
 
