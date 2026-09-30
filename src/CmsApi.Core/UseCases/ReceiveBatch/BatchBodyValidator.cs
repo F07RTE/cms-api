@@ -1,13 +1,19 @@
+using System.Text;
 using System.Text.Json;
 using CmsApi.Core.Domain.Batches;
 using CmsApi.Core.Exceptions;
-using CmsApi.Core.Text;
 
 namespace CmsApi.Core.UseCases.ReceiveBatch;
 
 // Whole-body rules only: each CMS Event is validated later, by the worker.
 public static class BatchBodyValidator
 {
+    // Strict: an invalid byte is rejected instead of silently becoming U+FFFD in the Inbox.
+    private static readonly UTF8Encoding StrictUtf8 = new(
+        encoderShouldEmitUTF8Identifier: false,
+        throwOnInvalidBytes: true
+    );
+
     public static ValidBatchBody Validate(ReadOnlyMemory<byte> utf8Body)
     {
         var text = Decode(utf8Body);
@@ -27,9 +33,17 @@ public static class BatchBodyValidator
         return new ValidBatchBody(text, count);
     }
 
-    private static string Decode(ReadOnlyMemory<byte> utf8Body) =>
-        StrictUtf8.TryDecode(utf8Body.Span)
-        ?? throw new InvalidBatchException("The body is not valid UTF-8.", utf8Body.Length);
+    private static string Decode(ReadOnlyMemory<byte> utf8Body)
+    {
+        try
+        {
+            return StrictUtf8.GetString(utf8Body.Span);
+        }
+        catch (DecoderFallbackException)
+        {
+            throw new InvalidBatchException("The body is not valid UTF-8.", utf8Body.Length);
+        }
+    }
 
     private static JsonDocument Parse(ReadOnlyMemory<byte> utf8Body)
     {

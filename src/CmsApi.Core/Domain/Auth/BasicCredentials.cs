@@ -1,5 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using CmsApi.Core.Text;
+using System.Text;
 
 namespace CmsApi.Core.Domain.Auth;
 
@@ -36,7 +36,7 @@ public sealed record BasicCredentials(string Username, string Password)
     {
         var bytes = new byte[token.Length];
         return Convert.TryFromBase64String(token, bytes, out var length)
-            ? StrictUtf8.TryDecode(bytes.AsSpan(0, length))
+            ? Encoding.UTF8.GetString(bytes, 0, length)
             : null;
     }
 

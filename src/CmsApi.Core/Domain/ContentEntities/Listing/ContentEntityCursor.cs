@@ -2,7 +2,6 @@ using System.Buffers.Text;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
-using CmsApi.Core.Text;
 
 namespace CmsApi.Core.Domain.ContentEntities.Listing;
 
@@ -41,7 +40,7 @@ public sealed record ContentEntityCursor(DateTimeOffset UpdatedAt, string Id)
 
     private static string? TryDecodeContent(string? token) =>
         token is not null && Base64Url.IsValid(token)
-            ? StrictUtf8.TryDecode(Base64Url.DecodeFromChars(token))
+            ? Encoding.UTF8.GetString(Base64Url.DecodeFromChars(token))
             : null;
 
     private static DateTimeOffset? TryParseTicks(string text) =>
