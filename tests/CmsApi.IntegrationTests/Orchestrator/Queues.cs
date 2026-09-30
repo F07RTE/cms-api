@@ -67,12 +67,12 @@ public static partial class Orchestrator
     private static Dictionary<string, object?> DeathHeaders(long deathCount) =>
         new()
         {
-            [DeathHeader.Name] = new List<object?>
+            [BatchDelivery.DeathHeader] = new List<object?>
             {
                 new Dictionary<string, object?>
                 {
-                    [DeathHeader.Queue] = BatchQueues.Main,
-                    [DeathHeader.Count] = deathCount,
+                    [BatchDelivery.DeathQueue] = BatchQueues.Main,
+                    [BatchDelivery.DeathCount] = deathCount,
                 },
             },
         };
