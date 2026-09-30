@@ -8,6 +8,8 @@ Keeps a private, versioned copy of the content a CMS publishes, and serves it to
 
 The domain vocabulary is in [`CONTEXT.md`](CONTEXT.md). The decisions that are hard to reverse are in [`docs/adr/`](docs/adr/).
 
+![Architecture](docs/architecture.excalidraw.svg)
+
 ## Running it
 
 ### Prerequisites
